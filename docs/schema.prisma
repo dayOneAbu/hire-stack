@@ -1,0 +1,377 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum SystemRole {
+  SUPER_ADMIN
+  PLATFORM_OPERATOR
+  EMPLOYER_OWNER
+  EMPLOYER_RECRUITER
+  CANDIDATE
+}
+
+enum AccountStatus {
+  PENDING_EMAIL_VERIFICATION
+  PENDING_ADMIN_APPROVAL
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum AmbiguityRule {
+  TIMELINE_GAP
+  CONCURRENT_EMPLOYERS
+  MISSING_WAGE_RANGE
+  FREELANCE_INDICATION
+  UNUSUAL_JOB_DURATION
+  CRITICAL_CERT_MISSING
+  INCOMPLETE_ENTRY
+}
+
+enum EmploymentType {
+  EMPLOYEE
+  CONTRACTOR
+  FREELANCE
+  VA_AGENCY
+  MULTIPLE_CLIENTS
+}
+
+enum ParseStatus {
+  PENDING
+  PARSED
+  FAILED
+}
+
+enum ClarificationResolution {
+  PENDING_CANDIDATE
+  RESOLVED_BY_CANDIDATE
+  FLAGGED_FOR_ADMIN_REVIEW
+  OVERRIDDEN_BY_ADMIN
+  IGNORED
+}
+
+enum TaxonomyStatus {
+  SUGGESTED_BY_AI
+  APPROVED_GLOBAL
+  DEPRECATED
+  MERGED
+}
+
+enum JobStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  CLOSED
+  ARCHIVED
+}
+
+enum SubscriptionTier {
+  FREE
+  STARTER
+  TEAM
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  INCOMPLETE
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum KanbanStageType {
+  INBOX
+  SCREENING
+  TECHNICAL_ASSESSMENT
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+}
+
+enum AuditAction {
+  USER_LOGIN
+  USER_SUSPENDED
+  PROFILE_PUBLISHED
+  RESUME_PARSED
+  STRIPE_WEBHOOK_RECEIVED
+  JOB_SLOT_EXCEEDED
+  CANDIDATE_STAGE_TRANSITION
+  TAXONOMY_MERGED
+}
+
+enum Proficiency {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+model User {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String         @unique
+  passwordHash        String
+  role                SystemRole     @default(CANDIDATE)
+  status              AccountStatus  @default(PENDING_EMAIL_VERIFICATION)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  deletedAt           DateTime?
+  lastLoginAt         DateTime?
+  failedLoginAttempts Int            @default(0)
+  candidateProfile    Candidate?
+  employerMember      EmployerStaff?
+  authoredNotes       Note[]
+  auditLogs           AuditTrail[]
+  @@index([email])
+  @@index([status])
+}
+
+model Workspace {
+  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                  String
+  slug                  String             @unique
+  stripeCustomerId      String?            @unique
+  stripeSubscriptionId  String?            @unique
+  subscriptionTier      SubscriptionTier   @default(FREE)
+  subscriptionStatus    SubscriptionStatus @default(INCOMPLETE)
+  jobSlotLimit          Int                @default(0)
+  hasConsultation       Boolean            @default(false)
+  hasHireAssist         Boolean            @default(false)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  staffMembers          EmployerStaff[]
+  jobPosts              JobPost[]
+  @@index([stripeSubscriptionId])
+}
+
+model EmployerStaff {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String     @db.Uuid @unique
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String     @db.Uuid
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title       String?
+  approved    Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  @@index([workspaceId])
+}
+
+model Industry {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String     @unique
+  slug        String     @unique
+  createdAt   DateTime   @default(now())
+  softwares   Software[]
+  skills      Skill[]
+  jobPosts    JobPost[]
+}
+
+model Software {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  industryId       String              @db.Uuid
+  industry         Industry            @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  name             String              @unique
+  normalizedSlug   String              @unique
+  status           TaxonomyStatus      @default(SUGGESTED_BY_AI)
+  mergedIntoId     String?             @db.Uuid
+  createdAt        DateTime            @default(now())
+  candidateUsage   CandidateSoftware[]
+  jobRequirements  JobRequiredSoftware[]
+  @@index([status])
+}
+
+model Skill {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  industryId       String              @db.Uuid
+  industry         Industry            @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  name             String              @unique
+  status           TaxonomyStatus      @default(APPROVED_GLOBAL)
+  createdAt        DateTime            @default(now())
+  candidateUsage   CandidateSkill[]
+  jobRequirements  JobRequiredSkill[]
+}
+
+model Candidate {
+  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String                 @db.Uuid @unique
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName             String
+  lastName              String
+  avatarUrl             String?
+  bio                   String?                @db.Text
+  rawResumeUrl          String?
+  resumeParseStatus     ParseStatus?
+  targetHourlyRateMin   Decimal?               @db.Decimal(10, 2)
+  targetHourlyRateMax   Decimal?               @db.Decimal(10, 2)
+  weeklyAvailability    Int                    @default(40)
+  isSearchable          Boolean                @default(false)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  employmentHistory     EmploymentPeriod[]
+  softwareInventory     CandidateSoftware[]
+  skillInventory        CandidateSkill[]
+  jobApplications       JobApplication[]
+  @@index([isSearchable])
+  @@index([targetHourlyRateMin, targetHourlyRateMax])
+}
+
+model EmploymentPeriod {
+  id                     String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId            String                  @db.Uuid
+  candidate              Candidate               @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  companyName            String
+  jobTitle               String
+  startDate              DateTime
+  endDate                DateTime?
+  description            String?                 @db.Text
+  documentedHourlyRate   Decimal?                @db.Decimal(10, 2)
+  employmentType         EmploymentType?
+  isUserVerified         Boolean                 @default(false)
+  anomaliesDetected      EmploymentAnomaly[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  @@index([candidateId])
+}
+
+model EmploymentAnomaly {
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employmentPeriodId String                  @db.Uuid
+  employmentPeriod   EmploymentPeriod        @relation(fields: [employmentPeriodId], references: [id], onDelete: Cascade)
+  ruleType           AmbiguityRule
+  confidenceScore    Float
+  systemNote         String                  @db.Text
+  status             ClarificationResolution @default(PENDING_CANDIDATE)
+  candidateAnswer    String?                 @db.Text
+  resolvedAt         DateTime?
+  createdAt          DateTime                @default(now())
+  @@index([employmentPeriodId])
+}
+
+model CandidateSoftware {
+  candidateId      String      @db.Uuid
+  candidate        Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  softwareId       String      @db.Uuid
+  software         Software    @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  proficiency      Proficiency @default(INTERMEDIATE)
+  yearsOfUsage     Float       @default(1.0)
+  isCurrentlyUsed  Boolean     @default(true)
+  @@id([candidateId, softwareId])
+  @@index([softwareId])
+}
+
+model CandidateSkill {
+  candidateId      String      @db.Uuid
+  candidate        Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  skillId          String      @db.Uuid
+  skill            Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  proficiency      Proficiency @default(INTERMEDIATE)
+  @@id([candidateId, skillId])
+  @@index([skillId])
+}
+
+model JobPost {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId         String                @db.Uuid
+  workspace           Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  industryId          String                @db.Uuid
+  industry            Industry              @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  title               String
+  description         String                @db.Text
+  status              JobStatus             @default(DRAFT)
+  activatedAt         DateTime?
+  expiresAt           DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  targetRateMin       Decimal?              @db.Decimal(10, 2)
+  targetRateMax       Decimal?              @db.Decimal(10, 2)
+  requiredHoursMin    Int                   @default(20)
+  requiredSoftware    JobRequiredSoftware[]
+  requiredSkills      JobRequiredSkill[]
+  applications        JobApplication[]
+  @@index([workspaceId])
+  @@index([industryId])
+  @@index([status])
+}
+
+model JobRequiredSoftware {
+  jobPostId        String      @db.Uuid
+  jobPost          JobPost     @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  softwareId       String      @db.Uuid
+  software         Software    @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  minProficiency   Proficiency @default(INTERMEDIATE)
+  isMandatory      Boolean     @default(true)
+  @@id([jobPostId, softwareId])
+}
+
+model JobRequiredSkill {
+  jobPostId        String      @db.Uuid
+  jobPost          JobPost     @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  skillId          String      @db.Uuid
+  skill            Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  minProficiency   Proficiency @default(INTERMEDIATE)
+  @@id([jobPostId, skillId])
+}
+
+model JobApplication {
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobPostId          String                 @db.Uuid
+  jobPost            JobPost                @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  candidateId        String                 @db.Uuid
+  candidate          Candidate              @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  currentStage       KanbanStageType        @default(INBOX)
+  softwareScore      Int                    @default(0)
+  experienceScore    Int                    @default(0)
+  compScore          Int                    @default(0)
+  availabilityScore  Int                    @default(0)
+  overallMatchScore  Int                    @default(0)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  notes              Note[]
+  stageHistory       ApplicationHistory[]
+  @@unique([jobPostId, candidateId])
+  @@index([jobPostId])
+  @@index([currentStage])
+}
+
+model ApplicationHistory {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId    String           @db.Uuid
+  application      JobApplication   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStage        KanbanStageType
+  toStage          KanbanStageType
+  changedById      String?          @db.Uuid
+  reason           String?          @db.Text
+  createdAt        DateTime         @default(now())
+  @@index([applicationId])
+}
+
+model Note {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId    String         @db.Uuid
+  application      JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  authorId         String         @db.Uuid
+  author           User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content          String         @db.Text
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  @@index([applicationId])
+}
+
+model AuditTrail {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String?     @db.Uuid
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      AuditAction
+  ipAddress   String?
+  userAgent   String?
+  payload     Json?
+  createdAt   DateTime    @default(now())
+  @@index([action])
+  @@index([createdAt])
+}
