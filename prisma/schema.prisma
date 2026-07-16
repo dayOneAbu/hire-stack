@@ -89,6 +89,31 @@ enum KanbanStageType {
   REJECTED
 }
 
+enum ApplicationSource {
+  EMPLOYER_ADDED
+  CANDIDATE_APPLIED
+}
+
+enum OfferStatus {
+  DRAFT
+  SENT
+  SIGNED
+  DECLINED
+}
+
+enum ReferralStatus {
+  PENDING
+  SIGNED_UP
+  CONVERTED
+}
+
+enum PaymentStatus {
+  HELD
+  RELEASED
+  REFUNDED
+  FAILED
+}
+
 enum AuditAction {
   USER_LOGIN
   USER_SUSPENDED
@@ -131,6 +156,9 @@ model User {
   candidateProfile    Candidate?
   employerMember      EmployerStaff?
   authoredNotes       Note[]
+  sentMessages        Message[]
+  savedSearches       SavedSearch[]
+  referrals           Referral[]
   auditLogs           AuditTrail[]
 
   @@index([email])
@@ -205,6 +233,7 @@ model Workspace {
 
   staffMembers         EmployerStaff[]
   jobPosts             JobPost[]
+  savedSearches        SavedSearch[]
 
   @@index([stripeSubscriptionId])
 }
@@ -228,14 +257,18 @@ model EmployerStaff {
 // ---------------------------------------------------------------------------
 
 model Industry {
-  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String     @unique
-  slug      String     @unique
-  createdAt DateTime   @default(now())
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String         @unique
+  slug         String         @unique
+  status       TaxonomyStatus @default(APPROVED_GLOBAL)
+  mergedIntoId String?        @db.Uuid
+  createdAt    DateTime       @default(now())
 
-  softwares Software[]
-  skills    Skill[]
-  jobPosts  JobPost[]
+  softwares    Software[]
+  skills       Skill[]
+  jobPosts     JobPost[]
+
+  @@index([status])
 }
 
 model Software {
@@ -271,26 +304,30 @@ model Skill {
 // ---------------------------------------------------------------------------
 
 model Candidate {
-  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId              String              @db.Uuid @unique
-  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstName           String
-  lastName            String
-  avatarUrl           String?
-  bio                 String?             @db.Text
-  rawResumeUrl        String?
-  resumeParseStatus   ParseStatus?
-  targetHourlyRateMin Decimal?            @db.Decimal(10, 2)
-  targetHourlyRateMax Decimal?            @db.Decimal(10, 2)
-  weeklyAvailability  Int                 @default(40)
-  isSearchable        Boolean             @default(false)
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  id                     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                 String              @db.Uuid @unique
+  user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName              String
+  lastName               String
+  avatarUrl              String?
+  bio                    String?             @db.Text
+  rawResumeUrl           String?
+  resumeParseStatus      ParseStatus?
+  targetHourlyRateMin    Decimal?            @db.Decimal(10, 2)
+  targetHourlyRateMax    Decimal?            @db.Decimal(10, 2)
+  weeklyAvailability     Int                 @default(40)
+  isSearchable           Boolean             @default(false)
+  stripeConnectAccountId String?             @unique
+  payoutsEnabled         Boolean             @default(false)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
 
   employmentHistory   EmploymentPeriod[]
   softwareInventory   CandidateSoftware[]
   skillInventory      CandidateSkill[]
   jobApplications     JobApplication[]
+  savedJobs           SavedJob[]
+  payments            Payment[]
 
   @@index([isSearchable])
   @@index([targetHourlyRateMin, targetHourlyRateMax])
@@ -379,6 +416,7 @@ model JobPost {
   requiredSoftware JobRequiredSoftware[]
   requiredSkills   JobRequiredSkill[]
   applications     JobApplication[]
+  savedBy          SavedJob[]
 
   @@index([workspaceId])
   @@index([industryId])
@@ -412,6 +450,7 @@ model JobApplication {
   jobPost           JobPost              @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
   candidateId       String               @db.Uuid
   candidate         Candidate            @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  source            ApplicationSource    @default(EMPLOYER_ADDED)
   currentStage      KanbanStageType      @default(INBOX)
   softwareScore     Int                  @default(0)
   experienceScore   Int                  @default(0)
@@ -422,11 +461,97 @@ model JobApplication {
   updatedAt         DateTime             @updatedAt
 
   notes             Note[]
+  messages          Message[]
+  offer             Offer?
+  payments          Payment[]
   stageHistory      ApplicationHistory[]
 
   @@unique([jobPostId, candidateId])
   @@index([jobPostId])
   @@index([currentStage])
+}
+
+model Message {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String         @db.Uuid
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  senderId      String         @db.Uuid
+  sender        User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content       String         @db.Text
+  readAt        DateTime?
+  createdAt     DateTime       @default(now())
+
+  @@index([applicationId])
+}
+
+model Offer {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String         @db.Uuid @unique
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  documentUrl   String
+  status        OfferStatus    @default(DRAFT)
+  sentAt        DateTime?
+  signedAt      DateTime?
+  signerName    String?
+  signerIp      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Payment {
+  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId          String         @db.Uuid
+  application            JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  candidateId            String         @db.Uuid
+  candidate              Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  amount                 Decimal        @db.Decimal(10, 2)
+  currency               String         @default("usd")
+  stripePaymentIntentId  String         @unique
+  stripeTransferId       String?        @unique
+  status                 PaymentStatus  @default(HELD)
+  heldAt                 DateTime       @default(now())
+  releasedAt             DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  @@index([applicationId])
+  @@index([status])
+}
+
+model SavedJob {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId String    @db.Uuid
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  jobPostId   String    @db.Uuid
+  jobPost     JobPost   @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([candidateId, jobPostId])
+}
+
+model SavedSearch {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String    @db.Uuid
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdById String    @db.Uuid
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  filters     Json
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId])
+}
+
+model Referral {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referrerId    String         @db.Uuid
+  referrer      User           @relation(fields: [referrerId], references: [id], onDelete: Cascade)
+  refereeEmail  String
+  status        ReferralStatus @default(PENDING)
+  rewardAmount  Decimal?       @db.Decimal(10, 2)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([referrerId])
 }
 
 model ApplicationHistory {
