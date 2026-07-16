@@ -20,13 +20,20 @@ export default function SignInPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error: signInError } = await authClient.signIn.email({ email, password });
+    const { data, error: signInError } = await authClient.signIn.email({ email, password });
     setLoading(false);
     if (signInError) {
       setError(signInError.message ?? "Sign in failed.");
       return;
     }
-    router.push("/onboarding");
+    const role = (data?.user as { role?: string } | undefined)?.role;
+    if (role === "EMPLOYER_OWNER" || role === "EMPLOYER_RECRUITER") {
+      router.push("/jobs");
+    } else if (role === "SUPER_ADMIN" || role === "PLATFORM_OPERATOR") {
+      router.push("/review-queue");
+    } else {
+      router.push("/onboarding");
+    }
   }
 
   return (
