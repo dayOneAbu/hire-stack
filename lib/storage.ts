@@ -3,9 +3,11 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 
 // Cloudflare R2 — S3-compatible API, zero egress fees (PRD §8).
+// Local dev points R2_ENDPOINT at the MinIO container instead, which needs path-style addressing.
 export const r2 = new S3Client({
   region: "auto",
   endpoint: process.env.R2_ENDPOINT,
+  forcePathStyle: process.env.R2_ENDPOINT?.includes("localhost") ?? false,
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID ?? "",
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? "",

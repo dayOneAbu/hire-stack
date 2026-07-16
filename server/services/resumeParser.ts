@@ -83,7 +83,7 @@ export async function parseResume(candidateId: string, rawResumeUrl: string): Pr
       data: { resumeParseStatus: "PARSED" },
     });
   } catch (err) {
-    console.error("Resume parse failed", { candidateId, err });
+    console.error("Resume parse failed", candidateId, err instanceof Error ? err.stack : err);
     await prisma.candidate.update({
       where: { id: candidateId },
       data: { resumeParseStatus: "FAILED" },
