@@ -15,12 +15,24 @@ type Stage = "resume" | "wizard" | "software" | "done";
 const STAGE_INDEX: Record<Stage, number> = { resume: 0, wizard: 1, software: 2, done: 3 };
 
 export default function OnboardingPage() {
-  const [stage, setStage] = useState<Stage>("resume");
+  // Overrides the derived stage once the user progresses past it in this session — null means
+  // "trust server state," so a reload always resumes at the real step instead of restarting at
+  // "resume." parseStatus and pending-anomaly count are the only two steps with persisted
+  // completion; software-confirm is designed to always be revisitable (FRS §5).
+  const [stageOverride, setStageOverride] = useState<Stage | null>(null);
   const [manualEntryOpen, setManualEntryOpen] = useState(false);
   const [needsAdminReview, setNeedsAdminReview] = useState(false);
   const status = trpc.candidate.resume.status.useQuery();
+  const nextStep = trpc.candidate.wizard.getNextStep.useQuery(undefined, {
+    enabled: status.data?.parseStatus === "PARSED",
+  });
 
-  if (status.isLoading) {
+  const parseStatus = status.data?.parseStatus ?? null;
+  const derivedStage: Stage | null =
+    parseStatus !== "PARSED" ? "resume" : nextStep.data ? (nextStep.data.totalPending + nextStep.data.totalFlagged > 0 ? "wizard" : "software") : null;
+  const stage = stageOverride ?? derivedStage;
+
+  if (status.isLoading || stage === null) {
     return (
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 p-6 pt-12">
         <Skeleton className="h-8 w-48" />
@@ -28,8 +40,6 @@ export default function OnboardingPage() {
       </div>
     );
   }
-
-  const parseStatus = status.data?.parseStatus ?? null;
 
   return (
     <div className="mx-auto w-full max-w-xl flex-1 space-y-6 p-6 pt-12">
@@ -42,7 +52,7 @@ export default function OnboardingPage() {
         {stage === "resume" && (
           <ResumeUpload
             parseStatus={parseStatus}
-            onParsed={() => setStage("wizard")}
+            onParsed={() => setStageOverride("wizard")}
             onManualEntry={() => setManualEntryOpen(true)}
           />
         )}
@@ -52,7 +62,7 @@ export default function OnboardingPage() {
             onClose={() => setManualEntryOpen(false)}
             onSaved={() => {
               setManualEntryOpen(false);
-              setStage("wizard");
+              setStageOverride("wizard");
             }}
           />
         )}
@@ -61,14 +71,14 @@ export default function OnboardingPage() {
           <Wizard
             onComplete={(flagged) => {
               setNeedsAdminReview(flagged);
-              setStage("software");
+              setStageOverride("software");
             }}
             onManualEntry={() => setManualEntryOpen(true)}
           />
         )}
 
         {stage === "software" && (
-          <SoftwareConfirm onDone={() => setStage("done")} />
+          <SoftwareConfirm onDone={() => setStageOverride("done")} />
         )}
 
         {stage === "done" &&
