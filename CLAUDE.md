@@ -44,6 +44,41 @@ via env vars, not code) · Stripe · Cloudflare R2 (S3-compatible) · Render hos
 Vercel's Hobby tier bans commercial use) · shadcn/ui on the **Base UI** backend (not Radix) ·
 React Bits for marketing-page animation/interaction components.
 
+## Taking real browser screenshots / driving the app in this sandbox
+
+The built-in `mcp__playwright__*` browser tools don't work here — they're hardcoded to look for
+Chromium at `/opt/google/chrome/chrome`, which doesn't exist in this environment, and
+`npx playwright install` fails too (needs `sudo` for OS deps, no password access).
+
+What actually works: Chromium installed via Ubuntu's Software Store as a **flatpak**. Its real
+binary is at:
+
+```text
+/var/lib/flatpak/exports/bin/org.chromium.Chromium
+```
+
+Drive it with Playwright's Node library API directly (not the MCP tool):
+
+1. `npm install playwright-core` in a scratch directory (not `npx` — it needs to resolve locally).
+2. Launch pointed at that binary:
+   ```js
+   import { chromium } from "playwright-core";
+   const browser = await chromium.launch({
+     executablePath: "/var/lib/flatpak/exports/bin/org.chromium.Chromium",
+     args: ["--no-sandbox", "--disable-gpu"],
+   });
+   ```
+3. Write screenshots under `$HOME` (e.g. `~/shots/`), not `/tmp` scratch paths — the flatpak
+   sandbox blocks writes outside `$HOME`.
+4. Start `pnpm dev` first, then navigate/screenshot/click through `page` as normal. Useful at both
+   mobile (390×844) and desktop (1280×900) viewports.
+
+To reach authenticated/multi-step candidate screens (wizard, software-confirm) quickly without a
+real AI parse, seed test data directly via Prisma using the same adapter pattern as `lib/prisma.ts`
+(`@prisma/adapter-pg`, not a bare `new PrismaClient()` — Prisma 7 needs the adapter). Delete any
+seeded test users (`prisma.user.deleteMany({ where: { email: { contains: "<test prefix>" } } })`)
+once done — this writes to the real dev database.
+
 ## Conventions
 
 - Role-gated tRPC procedures already exist in `server/trpc/trpc.ts`
