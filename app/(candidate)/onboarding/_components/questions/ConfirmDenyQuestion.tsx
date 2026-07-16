@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,11 +23,17 @@ export function ConfirmDenyQuestion({
   onAnswered: (isSearchable: boolean) => void;
 }) {
   const [correction, setCorrection] = useState("");
+  const [pendingAction, setPendingAction] = useState<"confirm" | "deny" | null>(null);
   const mutation = trpc.candidate.wizard.answerConfirmDeny.useMutation({
     onSuccess: (res) => onAnswered(res.isSearchable),
+    onError: (e) => {
+      setPendingAction(null);
+      toast.error(e.message || "Couldn't save your answer. Try again.");
+    },
   });
 
   function submit(confirmed: boolean) {
+    setPendingAction(confirmed ? "confirm" : "deny");
     mutation.mutate({ anomalyId, confirmed, correction: correction.trim() || undefined });
   }
 
@@ -37,10 +44,21 @@ export function ConfirmDenyQuestion({
         <Input value={correction} onChange={(e) => setCorrection(e.target.value)} />
       </div>
       <div className="flex gap-2">
-        <Button disabled={mutation.isPending} onClick={() => submit(true)}>
+        <Button
+          disabled={mutation.isPending}
+          loading={mutation.isPending && pendingAction === "confirm"}
+          loadingText="Saving…"
+          onClick={() => submit(true)}
+        >
           Confirm
         </Button>
-        <Button variant="outline" disabled={mutation.isPending} onClick={() => submit(false)}>
+        <Button
+          variant="outline"
+          disabled={mutation.isPending}
+          loading={mutation.isPending && pendingAction === "deny"}
+          loadingText="Saving…"
+          onClick={() => submit(false)}
+        >
           Deny
         </Button>
       </div>

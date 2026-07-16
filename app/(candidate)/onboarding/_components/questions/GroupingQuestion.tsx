@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const OPTIONS = [
   { value: "ONE_EMPLOYER", label: "One employer/job only" },
@@ -23,14 +25,17 @@ export function GroupingQuestion({
   onAnswered,
 }: {
   anomalyId: string;
-  onAnswered: (isSearchable: boolean) => void;
+  onAnswered: (isSearchable: boolean, answer: Answer) => void;
 }) {
-  const [answer, setAnswer] = useState<Answer | null>(null);
+  const [answer, setAnswer] = useState<Answer | "">("");
   const [splits, setSplits] = useState<Split[]>([
     { companyName: "", jobTitle: "", startDate: "", endDate: "" },
   ]);
   const mutation = trpc.candidate.wizard.answerGrouping.useMutation({
-    onSuccess: (res) => onAnswered(res.isSearchable),
+    onSuccess: (res) => {
+      if (answer) onAnswered(res.isSearchable, answer);
+    },
+    onError: (e) => toast.error(e.message || "Couldn't save your answer. Try again."),
   });
 
   function submit() {
@@ -58,22 +63,16 @@ export function GroupingQuestion({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
+      <RadioGroup value={answer} onValueChange={(value) => setAnswer(value as Answer)}>
         {OPTIONS.map((opt) => (
-          <label key={opt.value} className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              name="grouping"
-              checked={answer === opt.value}
-              onChange={() => setAnswer(opt.value)}
-            />
+          <RadioGroupItem key={opt.value} value={opt.value}>
             {opt.label}
-          </label>
+          </RadioGroupItem>
         ))}
-      </div>
+      </RadioGroup>
 
       {answer === "MULTIPLE_SEPARATE_CLIENTS" && (
-        <div className="space-y-4 border-t pt-4">
+        <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 space-y-4 border-t pt-4 motion-safe:duration-200">
           {splits.map((split, i) => (
             <div key={i} className="space-y-2 rounded-lg border p-3">
               <Label>Company name</Label>
@@ -126,7 +125,7 @@ export function GroupingQuestion({
         </div>
       )}
 
-      <Button disabled={!canSubmit || mutation.isPending} onClick={submit}>
+      <Button disabled={!canSubmit} loading={mutation.isPending} loadingText="Saving…" onClick={submit}>
         Continue
       </Button>
     </div>

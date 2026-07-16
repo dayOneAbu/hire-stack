@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,9 @@ export function ManualEntry({ onClose, onSaved }: { onClose: () => void; onSaved
       void utils.candidate.wizard.getNextStep.invalidate();
       void utils.candidate.employmentPeriod.list.invalidate();
       setDraft(EMPTY);
+      toast.success("Role added.");
     },
+    onError: (e) => toast.error(e.message || "Couldn't add that role. Try again."),
   });
   const list = trpc.candidate.employmentPeriod.list.useQuery();
 
@@ -77,7 +80,9 @@ export function ManualEntry({ onClose, onSaved }: { onClose: () => void; onSaved
 
         <Button
           variant="outline"
-          disabled={!canSubmit || create.isPending}
+          disabled={!canSubmit}
+          loading={create.isPending}
+          loadingText="Adding…"
           onClick={() =>
             create.mutate({
               companyName: draft.companyName,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +16,7 @@ export function GapQuestion({
   const [answer, setAnswer] = useState("");
   const mutation = trpc.candidate.wizard.answerGap.useMutation({
     onSuccess: (res) => onAnswered(res.isSearchable),
+    onError: (e) => toast.error(e.message || "Couldn't save your answer. Try again."),
   });
 
   return (
@@ -25,7 +27,9 @@ export function GapQuestion({
         onChange={(e) => setAnswer(e.target.value)}
       />
       <Button
-        disabled={!answer.trim() || mutation.isPending}
+        disabled={!answer.trim()}
+        loading={mutation.isPending}
+        loadingText="Saving…"
         onClick={() => mutation.mutate({ anomalyId, answer })}
       >
         Continue

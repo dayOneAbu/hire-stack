@@ -42,8 +42,17 @@ export const wizardRouter = router({
       },
     });
 
-    if (!period) return { period: null, anomalies: [] };
-    return { period, anomalies: period.anomaliesDetected };
+    const [totalPending, totalFlagged] = await Promise.all([
+      ctx.prisma.employmentAnomaly.count({
+        where: { status: "PENDING_CANDIDATE", employmentPeriod: { candidateId } },
+      }),
+      ctx.prisma.employmentAnomaly.count({
+        where: { status: "FLAGGED_FOR_ADMIN_REVIEW", employmentPeriod: { candidateId } },
+      }),
+    ]);
+
+    if (!period) return { period: null, anomalies: [], totalPending, totalFlagged };
+    return { period, anomalies: period.anomaliesDetected, totalPending, totalFlagged };
   }),
 
   answerGrouping: candidateProcedure
@@ -141,6 +150,28 @@ export const wizardRouter = router({
       await ctx.prisma.employmentAnomaly.update({
         where: { id: input.anomalyId },
         data: { status: "RESOLVED_BY_CANDIDATE", resolvedAt: new Date() },
+      });
+
+      const isSearchable = await recomputeIsSearchable(candidateId);
+      return { isSearchable };
+    }),
+
+  undoAnswer: candidateProcedure
+    .input(z.object({ anomalyId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const candidateId = await getCandidateId(ctx.prisma, ctx.session.user.id);
+      const anomaly = await getAnomalyOrThrow(ctx.prisma, input.anomalyId, candidateId);
+
+      if (anomaly.status !== "RESOLVED_BY_CANDIDATE") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only your own resolved answers can be undone.",
+        });
+      }
+
+      await ctx.prisma.employmentAnomaly.update({
+        where: { id: anomaly.id },
+        data: { status: "PENDING_CANDIDATE", candidateAnswer: null, resolvedAt: null },
       });
 
       const isSearchable = await recomputeIsSearchable(candidateId);
