@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hirestack
+      POSTGRES_PASSWORD: hirestack
+      POSTGRES_DB: hirestack
+    ports:
+      - "5436:5432"
+    volumes:
+      - hirestack_pgdata:/var/lib/postgresql/data
+
+volumes:
+  hirestack_pgdata:
