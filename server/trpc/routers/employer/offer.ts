@@ -3,6 +3,13 @@ import { TRPCError } from "@trpc/server";
 import { router, employerProcedure } from "@/server/trpc/trpc";
 import { getOfferUploadUrl, getOfferDownloadUrl } from "@/lib/storage";
 
+const ALLOWED_CONTENT_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+] as const;
+const MAX_OFFER_BYTES = 10 * 1024 * 1024;
+
 async function getWorkspaceId(prisma: typeof import("@/lib/prisma").prisma, userId: string) {
   const staff = await prisma.employerStaff.findUniqueOrThrow({ where: { userId } });
   return staff.workspaceId;
@@ -25,7 +32,14 @@ async function assertApplicationInWorkspace(
 
 export const offerRouter = router({
   getUploadUrl: employerProcedure
-    .input(z.object({ applicationId: z.string().uuid(), filename: z.string().min(1) }))
+    .input(
+      z.object({
+        applicationId: z.string().uuid(),
+        filename: z.string().min(1),
+        contentType: z.enum(ALLOWED_CONTENT_TYPES),
+        sizeBytes: z.number().int().positive().max(MAX_OFFER_BYTES),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
       await assertApplicationInWorkspace(ctx.prisma, input.applicationId, workspaceId);

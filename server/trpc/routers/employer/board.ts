@@ -152,7 +152,7 @@ export const boardRouter = router({
     await assertJobPostInWorkspace(ctx.prisma, input.jobPostId, workspaceId);
     return ctx.prisma.jobApplication.findMany({
       where: { jobPostId: input.jobPostId },
-      include: { notes: true, candidate: true },
+      include: { notes: true, candidate: true, offer: true, payments: true },
     });
   }),
 

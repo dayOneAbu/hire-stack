@@ -143,6 +143,8 @@ export function OfferDialog({ app, onClose }: { app: BoardApplication | null; on
       const { uploadUrl, documentUrl } = await getUploadUrl.mutateAsync({
         applicationId: app.id,
         filename: file.name,
+        contentType: file.type as "application/pdf" | "application/msword" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        sizeBytes: file.size,
       });
       await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
       await create.mutateAsync({ applicationId: app.id, documentUrl });
