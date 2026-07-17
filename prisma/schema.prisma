@@ -366,7 +366,7 @@ model EmploymentAnomaly {
   candidateAnswer    String?                      @db.Text
   resolvedAt         DateTime?
   createdAt          DateTime                     @default(now())
-  embedding          Unsupported("vector(2048)")?
+  embedding          Unsupported("vector(1024)")?
 
   @@index([employmentPeriodId])
 }
@@ -379,7 +379,7 @@ model CandidateChunk {
   candidate   Candidate                    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   source      String
   content     String                       @db.Text
-  embedding   Unsupported("vector(2048)")?
+  embedding   Unsupported("vector(1024)")?
   createdAt   DateTime                     @default(now())
 
   @@index([candidateId])
@@ -389,7 +389,7 @@ model JobPostEmbedding {
   jobPostId String                       @id @db.Uuid
   jobPost   JobPost                      @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
   content   String                       @db.Text
-  embedding Unsupported("vector(2048)")?
+  embedding Unsupported("vector(1024)")?
   updatedAt DateTime                     @updatedAt
 }
 

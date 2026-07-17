@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- AlterTable
-ALTER TABLE "EmploymentAnomaly" ADD COLUMN     "embedding" vector(2048);
+ALTER TABLE "EmploymentAnomaly" ADD COLUMN     "embedding" vector(1024);
 
 -- CreateTable
 CREATE TABLE "CandidateChunk" (
@@ -10,7 +10,7 @@ CREATE TABLE "CandidateChunk" (
     "candidateId" UUID NOT NULL,
     "source" TEXT NOT NULL,
     "content" TEXT NOT NULL,
-    "embedding" vector(2048),
+    "embedding" vector(1024),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "CandidateChunk_pkey" PRIMARY KEY ("id")
@@ -20,7 +20,7 @@ CREATE TABLE "CandidateChunk" (
 CREATE TABLE "JobPostEmbedding" (
     "jobPostId" UUID NOT NULL,
     "content" TEXT NOT NULL,
-    "embedding" vector(2048),
+    "embedding" vector(1024),
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "JobPostEmbedding_pkey" PRIMARY KEY ("jobPostId")

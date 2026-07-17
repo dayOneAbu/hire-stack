@@ -56,7 +56,10 @@ export async function extractResumeData(text: string): Promise<ExtractionResult>
   return extractionResultSchema.parse(JSON.parse(raw));
 }
 
-export const AI_EMBED_MODEL = process.env.AI_EMBED_MODEL ?? "nvidia/llama-3.2-nv-embedqa-1b-v2";
+// nvidia/llama-3.2-nv-embedqa-1b-v2 (2048 dims) returns 410 Gone on current NIM — use the
+// still-live nv-embedqa-e5-v5 (1024 dims) instead. Vector column width tracks this constant.
+export const AI_EMBED_MODEL = process.env.AI_EMBED_MODEL ?? "nvidia/nv-embedqa-e5-v5";
+export const AI_EMBED_DIMS = 1024;
 
 // NIM embedqa models require input_type ("query" for search queries, "passage" for
 // indexed content) — same text embedded as either produces different vectors.
