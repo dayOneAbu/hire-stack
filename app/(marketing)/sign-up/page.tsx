@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,11 +12,13 @@ import { ShieldCheck } from "lucide-react";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const claimReferral = trpc.referral.claim.useMutation();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,6 +29,10 @@ export default function SignUpPage() {
     if (signUpError) {
       setError(signUpError.message ?? "Sign up failed.");
       return;
+    }
+    const referrerId = searchParams.get("ref");
+    if (referrerId) {
+      claimReferral.mutate({ referrerId });
     }
     router.push("/onboarding");
   }

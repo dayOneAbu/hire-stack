@@ -21,5 +21,13 @@ export async function recomputeIsSearchable(candidateId: string): Promise<boolea
     await prisma.candidate.update({ where: { id: candidateId }, data: { isSearchable } });
   }
 
+  // Referral reward is a manual/off-platform payout — this only flips the flag admin sees (7.3).
+  if (isSearchable) {
+    await prisma.referral.updateMany({
+      where: { refereeEmail: candidate.user.email, status: "SIGNED_UP" },
+      data: { status: "CONVERTED" },
+    });
+  }
+
   return isSearchable;
 }

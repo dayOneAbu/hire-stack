@@ -23,6 +23,7 @@ async function syncSubscription(sub: Stripe.Subscription) {
   const priceId = sub.items.data[0]?.price.id;
   const tier = (priceId && PRICE_ID_TIER_MAP[priceId]) || workspace.subscriptionTier;
   const status = STATUS_MAP[sub.status] ?? "INCOMPLETE";
+  const wasFirstPaidActivation = status === "ACTIVE" && workspace.subscriptionStatus !== "ACTIVE";
 
   await prisma.workspace.update({
     where: { id: workspace.id },
@@ -33,6 +34,21 @@ async function syncSubscription(sub: Stripe.Subscription) {
       jobSlotLimit: tier === "ENTERPRISE" ? workspace.jobSlotLimit : TIER_SLOT_MAP[tier],
     },
   });
+
+  // Referral conversion on first paid subscription (7.3) — reward payout stays manual/off-platform.
+  if (wasFirstPaidActivation) {
+    const owner = await prisma.employerStaff.findFirst({
+      where: { workspaceId: workspace.id },
+      include: { user: true },
+      orderBy: { createdAt: "asc" },
+    });
+    if (owner) {
+      await prisma.referral.updateMany({
+        where: { refereeEmail: owner.user.email, status: "SIGNED_UP" },
+        data: { status: "CONVERTED" },
+      });
+    }
+  }
 }
 
 // FRS §9: webhook drives subscriptionStatus/subscriptionTier for self-serve

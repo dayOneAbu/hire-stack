@@ -4,6 +4,7 @@ import { employerRouter } from "@/server/trpc/routers/employer/_index";
 import { adminRouter } from "@/server/trpc/routers/admin/_index";
 import { billingRouter } from "@/server/trpc/routers/billing";
 import { messagesRouter } from "@/server/trpc/routers/messages";
+import { referralRouter } from "@/server/trpc/routers/referral";
 
 export const appRouter = router({
   candidate: candidateRouter,
@@ -11,6 +12,7 @@ export const appRouter = router({
   admin: adminRouter,
   billing: billingRouter,
   messages: messagesRouter,
+  referral: referralRouter,
 });
 
 export type AppRouter = typeof appRouter;
