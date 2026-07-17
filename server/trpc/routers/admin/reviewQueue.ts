@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { router, adminProcedure } from "@/server/trpc/trpc";
 import { recomputeIsSearchable } from "@/server/services/publishGate";
-import { refreshAnomalyEmbedding } from "@/server/services/embeddings";
+import { refreshAnomalyEmbedding, searchSimilarResolvedAnomalies } from "@/server/services/embeddings";
+import { embedTexts } from "@/lib/ai";
 
 export const reviewQueueRouter = router({
   list: adminProcedure.query(({ ctx }) =>
@@ -11,6 +12,14 @@ export const reviewQueueRouter = router({
       orderBy: { createdAt: "asc" },
     }),
   ),
+
+  similarAnomalies: adminProcedure
+    .input(z.object({ anomalyId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const anomaly = await ctx.prisma.employmentAnomaly.findUniqueOrThrow({ where: { id: input.anomalyId } });
+      const [queryEmbedding] = await embedTexts([anomaly.systemNote], "query");
+      return searchSimilarResolvedAnomalies(queryEmbedding, 5);
+    }),
 
   resolve: adminProcedure
     .input(
