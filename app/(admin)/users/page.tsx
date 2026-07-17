@@ -5,7 +5,9 @@ import { trpc } from "@/lib/trpc/client";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Search, UserX } from "lucide-react";
 
 export default function UsersPage() {
   const [query, setQuery] = useState("");
@@ -31,6 +33,22 @@ export default function UsersPage() {
       </div>
 
       <div className="space-y-3">
+        {results.isLoading && (
+          <>
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </>
+        )}
+
+        {results.isError && (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
+            <p className="text-sm text-muted-foreground">Couldn&apos;t load search results.</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => results.refetch()}>
+              Retry
+            </Button>
+          </div>
+        )}
+
         {results.data?.map((u) => (
           <Card key={u.id}>
             <CardHeader>
@@ -58,7 +76,11 @@ export default function UsersPage() {
           </Card>
         ))}
         {query.length > 0 && results.data?.length === 0 && (
-          <p className="py-10 text-center text-sm text-muted-foreground">No users found.</p>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
+            <UserX className="size-8 text-muted-foreground" />
+            <p className="mt-3 text-sm font-medium text-foreground">No users found</p>
+            <p className="mt-1 text-sm text-muted-foreground">Try a different name or email.</p>
+          </div>
         )}
       </div>
     </div>

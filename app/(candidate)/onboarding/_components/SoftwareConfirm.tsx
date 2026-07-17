@@ -24,6 +24,17 @@ export function SoftwareConfirm({ onDone }: { onDone: () => void }) {
 
   if (list.isLoading) return <Skeleton className="h-40 w-full" />;
 
+  if (list.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load your software list.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => list.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   const items = list.data ?? [];
 
   if (items.length === 0) {

@@ -65,6 +65,17 @@ export function Wizard({
     return <Skeleton className="h-48 w-full" />;
   }
 
+  if (nextStep.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load the next question.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => nextStep.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (!period || anomalies.length === 0) {
     return null;
   }

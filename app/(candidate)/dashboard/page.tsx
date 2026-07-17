@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Bookmark, BookmarkCheck, CheckCircle2, Clock } from "lucide-react";
+import { Bookmark, BookmarkCheck, CheckCircle2, Clock, Inbox, Search } from "lucide-react";
 
 function ProfileStatusCard() {
   const status = trpc.candidate.resume.status.useQuery();
@@ -16,6 +16,17 @@ function ProfileStatusCard() {
   });
 
   if (status.isLoading) return <Skeleton className="h-24 w-full" />;
+
+  if (status.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load your profile status.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => status.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   if (status.data?.parseStatus !== "PARSED" || (nextStep.data && nextStep.data.totalPending > 0)) {
     return (
@@ -75,14 +86,41 @@ function MatchedJobs() {
   });
   const save = trpc.candidate.jobs.save.useMutation({
     onSuccess: () => utils.candidate.jobs.savedList.invalidate(),
+    onError: (e) => toast.error(e.message),
   });
   const unsave = trpc.candidate.jobs.unsave.useMutation({
     onSuccess: () => utils.candidate.jobs.savedList.invalidate(),
+    onError: (e) => toast.error(e.message),
   });
 
-  if (matched.isLoading) return <Skeleton className="h-40 w-full" />;
+  if (matched.isLoading) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Skeleton className="h-36 w-full" />
+        <Skeleton className="h-36 w-full" />
+      </div>
+    );
+  }
+
+  if (matched.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load matched jobs.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => matched.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (!matched.data?.length) {
-    return <p className="text-sm text-muted-foreground">No open roles match your profile yet.</p>;
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <Search className="size-8 text-muted-foreground" />
+        <p className="mt-3 text-sm font-medium text-foreground">No matches yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">No open roles match your profile yet.</p>
+      </div>
+    );
   }
 
   return (
@@ -128,9 +166,34 @@ function MatchedJobs() {
 function MyApplications() {
   const applications = trpc.candidate.jobs.myApplications.useQuery();
 
-  if (applications.isLoading) return <Skeleton className="h-24 w-full" />;
+  if (applications.isLoading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+  }
+
+  if (applications.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load your applications.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => applications.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (!applications.data?.length) {
-    return <p className="text-sm text-muted-foreground">No applications yet.</p>;
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <Inbox className="size-8 text-muted-foreground" />
+        <p className="mt-3 text-sm font-medium text-foreground">No applications yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">Apply to a matched job to see it here.</p>
+      </div>
+    );
   }
 
   return (
@@ -152,9 +215,34 @@ function MyApplications() {
 function SavedJobs() {
   const saved = trpc.candidate.jobs.savedList.useQuery();
 
-  if (saved.isLoading) return <Skeleton className="h-24 w-full" />;
+  if (saved.isLoading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+  }
+
+  if (saved.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load saved jobs.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => saved.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (!saved.data?.length) {
-    return <p className="text-sm text-muted-foreground">No saved jobs yet.</p>;
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <Bookmark className="size-8 text-muted-foreground" />
+        <p className="mt-3 text-sm font-medium text-foreground">No saved jobs yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">Bookmark a matched job to keep track of it.</p>
+      </div>
+    );
   }
 
   return (
