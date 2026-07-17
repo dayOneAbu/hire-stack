@@ -1,6 +1,9 @@
+import { on } from "node:events";
 import { z } from "zod";
-import { TRPCError } from "@trpc/server";
+import { TRPCError, tracked } from "@trpc/server";
 import { router, protectedProcedure } from "@/server/trpc/trpc";
+import { messageEvents, emitMessage } from "@/server/services/messageEvents";
+import type { Message } from "@prisma/client";
 
 async function assertCanAccessApplication(
   prisma: typeof import("@/lib/prisma").prisma,
@@ -27,13 +30,38 @@ export const messagesRouter = router({
     .input(z.object({ applicationId: z.string().uuid(), content: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       await assertCanAccessApplication(ctx.prisma, ctx.session.user.id, input.applicationId);
-      return ctx.prisma.message.create({
+      const message = await ctx.prisma.message.create({
         data: {
           applicationId: input.applicationId,
           senderId: ctx.session.user.id,
           content: input.content,
         },
       });
+      emitMessage(message);
+      return message;
+    }),
+
+  onMessage: protectedProcedure
+    .input(z.object({ applicationId: z.string().uuid(), lastEventId: z.string().nullish() }))
+    .subscription(async function* ({ ctx, input, signal }) {
+      await assertCanAccessApplication(ctx.prisma, ctx.session.user.id, input.applicationId);
+
+      if (input.lastEventId) {
+        const lastMessage = await ctx.prisma.message.findUnique({ where: { id: input.lastEventId } });
+        if (lastMessage) {
+          const missed = await ctx.prisma.message.findMany({
+            where: { applicationId: input.applicationId, createdAt: { gt: lastMessage.createdAt } },
+            orderBy: { createdAt: "asc" },
+          });
+          for (const message of missed) {
+            yield tracked(message.id, message);
+          }
+        }
+      }
+
+      for await (const [message] of on(messageEvents, input.applicationId, { signal })) {
+        yield tracked((message as Message).id, message as Message);
+      }
     }),
 
   list: protectedProcedure

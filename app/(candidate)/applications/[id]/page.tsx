@@ -30,6 +30,11 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, messages.data?.length]);
 
+  trpc.messages.onMessage.useSubscription(
+    { applicationId: id },
+    { onData: () => utils.messages.list.invalidate({ applicationId: id }) },
+  );
+
   return (
     <div className="mx-auto flex h-full w-full max-w-2xl flex-col p-6 py-10">
       <Link
