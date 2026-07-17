@@ -64,8 +64,12 @@ export const resumeRouter = router({
   status: candidateProcedure.query(async ({ ctx }) => {
     const candidate = await ctx.prisma.candidate.findUniqueOrThrow({
       where: { userId: ctx.session.user.id },
-      select: { resumeParseStatus: true, isSearchable: true },
+      select: { resumeParseStatus: true, isSearchable: true, onboardingCompletedAt: true },
     });
-    return { parseStatus: candidate.resumeParseStatus, isSearchable: candidate.isSearchable };
+    return {
+      parseStatus: candidate.resumeParseStatus,
+      isSearchable: candidate.isSearchable,
+      onboardingCompletedAt: candidate.onboardingCompletedAt,
+    };
   }),
 });

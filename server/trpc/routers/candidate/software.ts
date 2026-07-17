@@ -53,4 +53,11 @@ export const softwareRouter = router({
         },
       });
     }),
+
+  completeOnboarding: candidateProcedure.mutation(async ({ ctx }) => {
+    await ctx.prisma.candidate.update({
+      where: { userId: ctx.session.user.id },
+      data: { onboardingCompletedAt: new Date() },
+    });
+  }),
 });
