@@ -6,20 +6,25 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   closestCorners,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { trpc } from "@/lib/trpc/client";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { KanbanColumn } from "./_components/KanbanColumn";
+import { FunnelChart } from "./_components/FunnelChart";
 import { KanbanCard, type BoardApplication } from "./_components/KanbanCard";
 import { NotesDialog } from "./_components/NotesDialog";
 import { MessagesDialog } from "./_components/MessagesDialog";
+import { OfferDialog } from "./_components/OfferDialog";
+import { AskAboutCandidateDialog } from "./_components/AskAboutCandidateDialog";
 
 const STAGES = [
   { value: "INBOX", label: "Inbox" },
@@ -41,8 +46,13 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
   const [activeId, setActiveId] = useState<string | null>(null);
   const [notesAppId, setNotesAppId] = useState<string | null>(null);
   const [messagesAppId, setMessagesAppId] = useState<string | null>(null);
+  const [offerAppId, setOfferAppId] = useState<string | null>(null);
+  const [askAppId, setAskAppId] = useState<string | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const moveStage = trpc.employer.board.moveStage.useMutation({
     onMutate: async ({ applicationId, toStage }) => {
@@ -73,6 +83,8 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
   const activeApp = applications.find((a) => a.id === activeId) ?? null;
   const notesApp = applications.find((a) => a.id === notesAppId) ?? null;
   const messagesApp = applications.find((a) => a.id === messagesAppId) ?? null;
+  const offerApp = applications.find((a) => a.id === offerAppId) ?? null;
+  const askApp = applications.find((a) => a.id === askAppId) ?? null;
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id));
@@ -111,6 +123,8 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
         <p className="text-sm text-muted-foreground">Drag candidates across stages as they progress.</p>
       </div>
 
+      <FunnelChart jobPostId={jobPostId} />
+
       {board.isLoading ? (
         <div className="flex flex-1 gap-4 overflow-x-auto p-6">
           {STAGES.map((s) => (
@@ -133,6 +147,8 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
                 applications={byStage.get(stage.value) ?? []}
                 onOpenNotes={setNotesAppId}
                 onOpenMessages={setMessagesAppId}
+                onOpenOffer={setOfferAppId}
+                onOpenAsk={setAskAppId}
               />
             ))}
           </div>
@@ -145,6 +161,8 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
 
       <NotesDialog app={notesApp} jobPostId={jobPostId} onClose={() => setNotesAppId(null)} />
       <MessagesDialog app={messagesApp} onClose={() => setMessagesAppId(null)} />
+      <OfferDialog app={offerApp} onClose={() => setOfferAppId(null)} />
+      <AskAboutCandidateDialog app={askApp} onClose={() => setAskAppId(null)} />
     </div>
   );
 }

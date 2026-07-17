@@ -43,6 +43,14 @@ export function MessagesDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [app?.id, messages.data?.length]);
 
+  trpc.messages.onMessage.useSubscription(
+    { applicationId: app?.id ?? "" },
+    {
+      enabled: app !== null,
+      onData: () => utils.messages.list.invalidate({ applicationId: app?.id ?? "" }),
+    },
+  );
+
   return (
     <Dialog
       open={app !== null}

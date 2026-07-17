@@ -3,14 +3,22 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
-import { MessageSquarePlus, MessagesSquare } from "lucide-react";
+import { FileSignature, MessageSquarePlus, MessagesSquare, MoreVertical, Sparkles } from "lucide-react";
+import { trpc } from "@/lib/trpc/client";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 export type BoardApplication = {
   id: string;
   currentStage: string;
   overallMatchScore: number | null;
-  candidate: { firstName: string; lastName: string };
-  notes: { id: string; content: string }[];
+  candidate: { id: string; firstName: string; lastName: string };
+  notes: { id: string; content: string; authorId: string }[];
 };
 
 function scoreTone(score: number | null) {
@@ -24,13 +32,22 @@ export function KanbanCard({
   app,
   onOpenNotes,
   onOpenMessages,
+  onOpenOffer,
+  onOpenAsk,
 }: {
   app: BoardApplication;
   onOpenNotes: (applicationId: string) => void;
   onOpenMessages?: (applicationId: string) => void;
+  onOpenOffer?: (applicationId: string) => void;
+  onOpenAsk?: (applicationId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: app.id,
+  });
+  const utils = trpc.useUtils();
+  const removeCandidate = trpc.employer.board.removeCandidate.useMutation({
+    onSuccess: () => utils.employer.board.list.invalidate(),
+    onError: (e) => toast.error(e.message),
   });
 
   const initials = `${app.candidate.firstName[0] ?? ""}${app.candidate.lastName[0] ?? ""}`.toUpperCase();
@@ -63,6 +80,26 @@ export function KanbanCard({
             {app.overallMatchScore ?? "—"}% match
           </span>
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+            className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+          >
+            <MoreVertical className="size-3.5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => {
+                if (window.confirm(`Remove ${app.candidate.firstName} ${app.candidate.lastName} from this board? This can't be undone.`)) {
+                  removeCandidate.mutate({ applicationId: app.id });
+                }
+              }}
+            >
+              Remove from board
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="mt-3 flex items-center gap-1">
@@ -78,6 +115,20 @@ export function KanbanCard({
           <MessageSquarePlus className="size-3.5" />
           {app.notes.length > 0 ? `${app.notes.length} note${app.notes.length === 1 ? "" : "s"}` : "Add note"}
         </button>
+        {onOpenAsk && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenAsk(app.id);
+            }}
+            className="flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Sparkles className="size-3.5" />
+            Ask AI
+          </button>
+        )}
         {onOpenMessages && (
           <button
             type="button"
@@ -93,6 +144,20 @@ export function KanbanCard({
           </button>
         )}
       </div>
+      {app.currentStage === "HIRED" && onOpenOffer && (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenOffer(app.id);
+          }}
+          className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-primary/10 px-1.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+        >
+          <FileSignature className="size-3.5" />
+          Offer
+        </button>
+      )}
     </div>
   );
 }

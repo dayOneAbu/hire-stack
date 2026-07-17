@@ -3,6 +3,9 @@ import type { Prisma } from "@prisma/client";
 import { router, employerProcedure } from "@/server/trpc/trpc";
 import { canViewFullProfile } from "@/server/services/employerAccess";
 import { computeMatchScore } from "@/server/services/matchScore";
+import { TRPCError } from "@trpc/server";
+import { embedTexts, answerAboutCandidate } from "@/lib/ai";
+import { searchCandidateChunks, blendScore, topChunksForCandidate } from "@/server/services/embeddings";
 
 const PAGE_SIZE = 20;
 
@@ -116,6 +119,84 @@ export const searchRouter = router({
 
     return { mode: "full" as const, results, total };
   }),
+
+  semantic: employerProcedure
+    .input(z.object({ query: z.string().min(1).max(500), jobPostId: z.string().uuid().optional() }))
+    .query(async ({ ctx, input }) => {
+      const staff = await ctx.prisma.employerStaff.findUniqueOrThrow({
+        where: { userId: ctx.session.user.id },
+      });
+      const fullAccess = await canViewFullProfile(staff.id);
+      if (!fullAccess) {
+        return { mode: "preview" as const, results: [] as never[] };
+      }
+
+      const [queryEmbedding] = await embedTexts([input.query], "query");
+      const matches = await searchCandidateChunks(queryEmbedding, 20);
+
+      const candidates = await ctx.prisma.candidate.findMany({
+        where: { id: { in: matches.map((m) => m.candidateId) } },
+        include: {
+          softwareInventory: { include: { software: true } },
+          employmentHistory: true,
+        },
+      });
+      const byId = new Map(candidates.map((c) => [c.id, c]));
+
+      const results = await Promise.all(
+        matches.map(async (m) => {
+          const candidate = byId.get(m.candidateId);
+          if (!candidate) return null;
+
+          const matchScore = input.jobPostId ? await computeMatchScore(m.candidateId, input.jobPostId) : null;
+          const blended = matchScore
+            ? blendScore(m.similarity, matchScore.overallMatchScore / 100)
+            : m.similarity;
+
+          return {
+            id: candidate.id,
+            firstName: candidate.firstName,
+            lastName: candidate.lastName,
+            avatarUrl: candidate.avatarUrl,
+            software: candidate.softwareInventory.map((s) => s.software.name),
+            matchScore,
+            similarity: m.similarity,
+            blendedScore: blended,
+            matchedChunk: { source: m.source, content: m.content },
+          };
+        }),
+      );
+
+      const ranked = results
+        .filter((r): r is NonNullable<typeof r> => r !== null)
+        .sort((a, b) => b.blendedScore - a.blendedScore);
+
+      return { mode: "full" as const, results: ranked };
+    }),
+
+  askAboutCandidate: employerProcedure
+    .input(z.object({ candidateId: z.string().uuid(), question: z.string().min(1).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const staff = await ctx.prisma.employerStaff.findUniqueOrThrow({
+        where: { userId: ctx.session.user.id },
+      });
+      const fullAccess = await canViewFullProfile(staff.id);
+      if (!fullAccess) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Full profile access required" });
+      }
+
+      const [queryEmbedding] = await embedTexts([input.question], "query");
+      const chunks = await topChunksForCandidate(input.candidateId, queryEmbedding, 6);
+      if (chunks.length === 0) {
+        return { answer: "This candidate doesn't have enough profile data to answer questions yet.", chunks: [] };
+      }
+
+      const answer = await answerAboutCandidate(
+        input.question,
+        chunks.map((c) => c.content),
+      );
+      return { answer, chunks };
+    }),
 
   compGuidanceForIndustry: employerProcedure
     .input(z.object({ industryId: z.string().uuid() }))

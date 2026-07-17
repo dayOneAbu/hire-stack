@@ -5,12 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { LogOut, PackageSearch, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { LogOut, PackageSearch, ScrollText, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 
 const NAV = [
   { href: "/software-queue", label: "Software queue", icon: PackageSearch },
   { href: "/review-queue", label: "Review queue", icon: ShieldAlert },
   { href: "/users", label: "Users", icon: Users },
+  { href: "/audit-trail", label: "Audit trail", icon: ScrollText },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

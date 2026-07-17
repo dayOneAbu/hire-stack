@@ -16,4 +16,29 @@ export const usersRouter = router({
         take: 25,
       }),
     ),
+
+  // Single-user only — FRS §14 deliberately excludes bulk ops, keep it that way.
+  suspend: adminProcedure
+    .input(z.object({ userId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const [user] = await ctx.prisma.$transaction([
+        ctx.prisma.user.update({ where: { id: input.userId }, data: { deletedAt: new Date() } }),
+        ctx.prisma.auditTrail.create({
+          data: { userId: ctx.session.user.id, action: "USER_SUSPENDED", payload: { targetUserId: input.userId } },
+        }),
+      ]);
+      return user;
+    }),
+
+  reinstate: adminProcedure
+    .input(z.object({ userId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const [user] = await ctx.prisma.$transaction([
+        ctx.prisma.user.update({ where: { id: input.userId }, data: { deletedAt: null } }),
+        ctx.prisma.auditTrail.create({
+          data: { userId: ctx.session.user.id, action: "USER_REINSTATED", payload: { targetUserId: input.userId } },
+        }),
+      ]);
+      return user;
+    }),
 });

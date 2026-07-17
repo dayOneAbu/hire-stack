@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Bookmark, BookmarkCheck, CheckCircle2, Clock } from "lucide-react";
+import { Bookmark, BookmarkCheck, CheckCircle2, Clock, Inbox, Search, Sparkles } from "lucide-react";
 
 function ProfileStatusCard() {
   const status = trpc.candidate.resume.status.useQuery();
@@ -16,6 +16,17 @@ function ProfileStatusCard() {
   });
 
   if (status.isLoading) return <Skeleton className="h-24 w-full" />;
+
+  if (status.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load your profile status.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => status.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   if (status.data?.parseStatus !== "PARSED" || (nextStep.data && nextStep.data.totalPending > 0)) {
     return (
@@ -75,14 +86,41 @@ function MatchedJobs() {
   });
   const save = trpc.candidate.jobs.save.useMutation({
     onSuccess: () => utils.candidate.jobs.savedList.invalidate(),
+    onError: (e) => toast.error(e.message),
   });
   const unsave = trpc.candidate.jobs.unsave.useMutation({
     onSuccess: () => utils.candidate.jobs.savedList.invalidate(),
+    onError: (e) => toast.error(e.message),
   });
 
-  if (matched.isLoading) return <Skeleton className="h-40 w-full" />;
+  if (matched.isLoading) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Skeleton className="h-36 w-full" />
+        <Skeleton className="h-36 w-full" />
+      </div>
+    );
+  }
+
+  if (matched.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load matched jobs.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => matched.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (!matched.data?.length) {
-    return <p className="text-sm text-muted-foreground">No open roles match your profile yet.</p>;
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <Search className="size-8 text-muted-foreground" />
+        <p className="mt-3 text-sm font-medium text-foreground">No matches yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">No open roles match your profile yet.</p>
+      </div>
+    );
   }
 
   return (
@@ -125,26 +163,133 @@ function MatchedJobs() {
   );
 }
 
-function MyApplications() {
-  const applications = trpc.candidate.jobs.myApplications.useQuery();
+function RecommendedJobs() {
+  const recommended = trpc.candidate.jobs.recommended.useQuery();
 
-  if (applications.isLoading) return <Skeleton className="h-24 w-full" />;
+  if (recommended.isLoading) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    );
+  }
+
+  if (recommended.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load recommendations.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => recommended.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (!recommended.data?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <Sparkles className="size-8 text-muted-foreground" />
+        <p className="mt-3 text-sm font-medium text-foreground">No recommendations yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Finish your profile so we can match you against open roles.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {recommended.data.map(({ jobPost, similarity }) => (
+        <Card key={jobPost.id}>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between gap-2">
+              <span>{jobPost.title}</span>
+              <Badge variant="secondary">{Math.round(similarity * 100)}% fit</Badge>
+            </CardTitle>
+            <CardDescription className="line-clamp-2">{jobPost.description}</CardDescription>
+          </CardHeader>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function MyApplications() {
+  const utils = trpc.useUtils();
+  const applications = trpc.candidate.jobs.myApplications.useQuery();
+  const withdraw = trpc.candidate.jobs.withdraw.useMutation({
+    onSuccess: () => {
+      toast.success("Application withdrawn");
+      utils.candidate.jobs.myApplications.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  if (applications.isLoading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+  }
+
+  if (applications.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load your applications.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => applications.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (!applications.data?.length) {
-    return <p className="text-sm text-muted-foreground">No applications yet.</p>;
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <Inbox className="size-8 text-muted-foreground" />
+        <p className="mt-3 text-sm font-medium text-foreground">No applications yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">Apply to a matched job to see it here.</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-2">
-      {applications.data.map((app) => (
-        <Link
-          key={app.id}
-          href={`/applications/${app.id}`}
-          className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted"
-        >
-          <span className="text-sm font-medium">{app.jobPost.title}</span>
-          <Badge variant="secondary">{app.currentStage}</Badge>
-        </Link>
-      ))}
+      {applications.data.map((app) => {
+        const canWithdraw = app.currentStage === "INBOX" && app.source === "CANDIDATE_APPLIED";
+        return (
+          <div
+            key={app.id}
+            className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted"
+          >
+            <Link href={`/applications/${app.id}`} className="flex flex-1 items-center justify-between">
+              <span className="text-sm font-medium">{app.jobPost.title}</span>
+              <Badge variant="secondary" className="mr-2">
+                {app.currentStage}
+              </Badge>
+            </Link>
+            {canWithdraw ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={withdraw.isPending}
+                onClick={() => {
+                  if (window.confirm("Withdraw this application?")) {
+                    withdraw.mutate({ applicationId: app.id });
+                  }
+                }}
+              >
+                Withdraw
+              </Button>
+            ) : (
+              <span className="ml-2 shrink-0 text-xs text-muted-foreground">Contact the employer to withdraw</span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -152,9 +297,34 @@ function MyApplications() {
 function SavedJobs() {
   const saved = trpc.candidate.jobs.savedList.useQuery();
 
-  if (saved.isLoading) return <Skeleton className="h-24 w-full" />;
+  if (saved.isLoading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+  }
+
+  if (saved.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load saved jobs.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => saved.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (!saved.data?.length) {
-    return <p className="text-sm text-muted-foreground">No saved jobs yet.</p>;
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <Bookmark className="size-8 text-muted-foreground" />
+        <p className="mt-3 text-sm font-medium text-foreground">No saved jobs yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">Bookmark a matched job to keep track of it.</p>
+      </div>
+    );
   }
 
   return (
@@ -176,6 +346,11 @@ export default function DashboardPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">Matched jobs</h2>
         <MatchedJobs />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">Recommended for you</h2>
+        <RecommendedJobs />
       </section>
 
       <section className="space-y-3">

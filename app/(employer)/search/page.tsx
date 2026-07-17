@@ -7,11 +7,66 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Lock, Search, UserPlus } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, Lock, Search, Trash2, UserPlus } from "lucide-react";
 
 type FullCandidate = Extract<RouterOutputs["employer"]["search"]["candidates"], { mode: "full" }>["results"][number];
+type SemanticCandidate = Extract<RouterOutputs["employer"]["search"]["semantic"], { mode: "full" }>["results"][number];
+
+function SemanticCandidateCard({ candidate, jobPostId }: { candidate: SemanticCandidate; jobPostId: string }) {
+  const addCandidate = trpc.employer.board.addCandidate.useMutation({
+    onSuccess: () => toast.success("Added to board"),
+    onError: (e) => toast.error(e.message),
+  });
+
+  return (
+    <Card className="transition-shadow hover:shadow-md">
+      <CardHeader>
+        <CardTitle className="text-base">
+          {candidate.firstName} {candidate.lastName}
+        </CardTitle>
+        <CardDescription>
+          {Math.round(candidate.similarity * 100)}% semantic match
+          {candidate.matchScore && ` · ${candidate.matchScore.overallMatchScore}% job match`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap gap-1.5">
+          {candidate.software.map((name) => (
+            <Badge key={name} variant="secondary">
+              {name}
+            </Badge>
+          ))}
+        </div>
+        <div className="rounded-md border border-dashed border-border bg-muted/40 p-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Why this matched ({candidate.matchedChunk.source}):</span>{" "}
+          {candidate.matchedChunk.content}
+        </div>
+      </CardContent>
+      {jobPostId && (
+        <CardFooter className="justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={addCandidate.isPending}
+            onClick={() => addCandidate.mutate({ jobPostId, candidateId: candidate.id })}
+          >
+            <UserPlus className="size-3.5" />
+            Add to board
+          </Button>
+        </CardFooter>
+      )}
+    </Card>
+  );
+}
 
 function CandidateCard({ candidate, jobPostId }: { candidate: FullCandidate; jobPostId: string }) {
   const addCandidate = trpc.employer.board.addCandidate.useMutation({
@@ -61,18 +116,121 @@ export default function SearchPage() {
   const [industryId, setIndustryId] = useState<string>("");
   const [jobPostId, setJobPostId] = useState<string>("");
   const [page, setPage] = useState(1);
+  const [queryInput, setQueryInput] = useState("");
+  const [activeQuery, setActiveQuery] = useState("");
 
   const results = trpc.employer.search.candidates.useQuery(
     { industryId, jobPostId: jobPostId || undefined, page },
-    { enabled: !!industryId },
+    { enabled: !!industryId && !activeQuery },
   );
+
+  const semanticResults = trpc.employer.search.semantic.useQuery(
+    { query: activeQuery, jobPostId: jobPostId || undefined },
+    { enabled: !!activeQuery },
+  );
+
+  const utils = trpc.useUtils();
+  const savedSearches = trpc.employer.savedSearch.list.useQuery();
+  const saveSearch = trpc.employer.savedSearch.save.useMutation({
+    onSuccess: () => {
+      toast.success("Search saved");
+      utils.employer.savedSearch.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteSearch = trpc.employer.savedSearch.delete.useMutation({
+    onSuccess: () => utils.employer.savedSearch.list.invalidate(),
+    onError: (e) => toast.error(e.message),
+  });
+
+  function recallSearch(filters: Record<string, unknown>) {
+    if (typeof filters.industryId === "string") setIndustryId(filters.industryId);
+    setPage(1);
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 p-6 py-10">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Search candidates</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Filter by industry and optionally score against a job post.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Search candidates</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Filter by industry and optionally score against a job post.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!industryId || saveSearch.isPending}
+            onClick={() => {
+              const name = window.prompt("Name this search");
+              if (name) saveSearch.mutate({ name, filters: { industryId, jobPostId: jobPostId || undefined } });
+            }}
+          >
+            <Bookmark className="size-3.5" />
+            Save this search
+          </Button>
+          {!!savedSearches.data?.length && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="outline" size="sm">
+                    Saved searches
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end">
+                {savedSearches.data.map((s) => {
+                  const filters = s.filters as Record<string, unknown>;
+                  return (
+                    <DropdownMenuItem key={s.id} onClick={() => recallSearch(filters)}>
+                      <span className="flex-1 truncate">{typeof filters.name === "string" ? filters.name : "Untitled"}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteSearch.mutate({ savedSearchId: s.id });
+                        }}
+                        className="ml-2 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
+
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setActiveQuery(queryInput.trim());
+        }}
+      >
+        <Input
+          placeholder="Describe who you need, e.g. “VA experienced with property management and QuickBooks”"
+          value={queryInput}
+          onChange={(e) => setQueryInput(e.target.value)}
+        />
+        <Button type="submit" disabled={!queryInput.trim()}>
+          <Search className="size-3.5" />
+          Search
+        </Button>
+        {activeQuery && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setQueryInput("");
+              setActiveQuery("");
+            }}
+          >
+            Clear
+          </Button>
+        )}
+      </form>
 
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row">
         <Select
@@ -113,14 +271,7 @@ export default function SearchPage() {
         </Select>
       </div>
 
-      {!industryId && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
-          <Search className="size-8 text-muted-foreground" />
-          <p className="mt-3 text-sm font-medium text-foreground">Select an industry to start searching</p>
-        </div>
-      )}
-
-      {results.isLoading && (
+      {activeQuery && semanticResults.isLoading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Skeleton className="h-40 w-full" />
           <Skeleton className="h-40 w-full" />
@@ -128,7 +279,76 @@ export default function SearchPage() {
         </div>
       )}
 
-      {results.data?.mode === "preview" && (
+      {activeQuery && semanticResults.isError && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <p className="text-sm text-muted-foreground">Couldn&apos;t run semantic search.</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => semanticResults.refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {activeQuery && semanticResults.data?.mode === "preview" && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <Lock className="size-8 text-muted-foreground" />
+          <p className="mt-3 text-sm font-medium text-foreground">Get approved and subscribed to use semantic search</p>
+        </div>
+      )}
+
+      {activeQuery && semanticResults.data?.mode === "full" && semanticResults.data.results.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <Search className="size-8 text-muted-foreground" />
+          <p className="mt-3 text-sm font-medium text-foreground">No matches for that description</p>
+        </div>
+      )}
+
+      {activeQuery && semanticResults.data?.mode === "full" && semanticResults.data.results.length > 0 && (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {semanticResults.data.results.length} candidates ranked by semantic match
+            {!jobPostId && " — select a job post above to blend with match score and add to a board"}
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {semanticResults.data.results.map((c) => (
+              <SemanticCandidateCard key={c.id} candidate={c} jobPostId={jobPostId} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!activeQuery && !industryId && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <Search className="size-8 text-muted-foreground" />
+          <p className="mt-3 text-sm font-medium text-foreground">Select an industry to start searching</p>
+        </div>
+      )}
+
+      {!activeQuery && results.isLoading && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      )}
+
+      {!activeQuery && results.isError && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <p className="text-sm text-muted-foreground">Couldn&apos;t load search results.</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => results.refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {!activeQuery && results.data?.mode === "full" && results.data.total === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <Search className="size-8 text-muted-foreground" />
+          <p className="mt-3 text-sm font-medium text-foreground">No candidates match</p>
+          <p className="mt-1 text-sm text-muted-foreground">Try a different industry or job post.</p>
+        </div>
+      )}
+
+      {!activeQuery && results.data?.mode === "preview" && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {results.data.count} candidate{results.data.count === 1 ? "" : "s"} match — get approved and subscribed to
@@ -157,7 +377,7 @@ export default function SearchPage() {
         </div>
       )}
 
-      {results.data?.mode === "full" && (
+      {!activeQuery && results.data?.mode === "full" && results.data.total > 0 && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {results.data.total} candidates
@@ -171,7 +391,7 @@ export default function SearchPage() {
         </div>
       )}
 
-      {results.data && (
+      {!activeQuery && results.data && (
         <div className="flex justify-end gap-2">
           <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             <ChevronLeft className="size-3.5" />

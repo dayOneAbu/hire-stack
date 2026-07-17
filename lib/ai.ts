@@ -55,3 +55,43 @@ export async function extractResumeData(text: string): Promise<ExtractionResult>
   const raw = completion.choices[0]?.message?.content ?? "{}";
   return extractionResultSchema.parse(JSON.parse(raw));
 }
+
+// nvidia/llama-3.2-nv-embedqa-1b-v2 (2048 dims) returns 410 Gone on current NIM — use the
+// still-live nv-embedqa-e5-v5 (1024 dims) instead. Vector column width tracks this constant.
+export const AI_EMBED_MODEL = process.env.AI_EMBED_MODEL ?? "nvidia/nv-embedqa-e5-v5";
+export const AI_EMBED_DIMS = 1024;
+
+// NIM embedqa models require input_type ("query" for search queries, "passage" for
+// indexed content) — same text embedded as either produces different vectors.
+const ASK_ABOUT_CANDIDATE_SYSTEM_PROMPT = `You answer employer questions about a job candidate
+using ONLY the provided profile excerpts. If the excerpts don't contain the answer, say so —
+never invent employment history, skills, or software experience.`;
+
+export async function answerAboutCandidate(question: string, chunks: string[]): Promise<string> {
+  const context = chunks.map((c, i) => `[${i + 1}] ${c}`).join("\n");
+  const completion = await aiClient.chat.completions.create({
+    model: AI_MODEL,
+    messages: [
+      { role: "system", content: ASK_ABOUT_CANDIDATE_SYSTEM_PROMPT },
+      { role: "user", content: `Profile excerpts:\n${context}\n\nQuestion: ${question}` },
+    ],
+  });
+  return completion.choices[0]?.message?.content ?? "";
+}
+
+export async function embedTexts(
+  texts: string[],
+  inputType: "query" | "passage",
+): Promise<number[][]> {
+  if (texts.length === 0) return [];
+
+  const response = await aiClient.embeddings.create({
+    model: AI_EMBED_MODEL,
+    input: texts,
+    // @ts-expect-error -- NIM extends the OpenAI embeddings schema with input_type
+    input_type: inputType,
+    encoding_format: "float",
+  });
+
+  return response.data.map((d) => d.embedding);
+}

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, employerProcedure } from "@/server/trpc/trpc";
+import { refreshJobPostEmbedding } from "@/server/services/embeddings";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -33,6 +34,24 @@ const jobPostInput = z.object({
 async function getWorkspaceId(prisma: typeof import("@/lib/prisma").prisma, userId: string) {
   const staff = await prisma.employerStaff.findUniqueOrThrow({ where: { userId } });
   return staff.workspaceId;
+}
+
+// FRS/plan: job slot check ONLY fires at DRAFT/PAUSED → ACTIVE, live count query, never a
+// stored counter. Shared by activate and resume so the rule can't drift between the two.
+async function assertJobSlotAvailable(
+  prisma: typeof import("@/lib/prisma").prisma,
+  userId: string,
+  workspaceId: string,
+  jobPostId: string,
+) {
+  const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId } });
+  const activeCount = await prisma.jobPost.count({ where: { workspaceId, status: "ACTIVE" } });
+  if (activeCount >= workspace.jobSlotLimit) {
+    await prisma.auditTrail.create({
+      data: { userId, action: "JOB_SLOT_EXCEEDED", payload: { jobPostId } },
+    });
+    throw new TRPCError({ code: "FORBIDDEN", message: "Job slot limit reached" });
+  }
 }
 
 export const jobPostRouter = router({
@@ -79,18 +98,7 @@ export const jobPostRouter = router({
     .input(z.object({ jobPostId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
-      const workspace = await ctx.prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId } });
-
-      // FRS/plan: job slot check ONLY fires here, live count query, never a stored counter.
-      const activeCount = await ctx.prisma.jobPost.count({
-        where: { workspaceId, status: "ACTIVE" },
-      });
-      if (activeCount >= workspace.jobSlotLimit) {
-        await ctx.prisma.auditTrail.create({
-          data: { userId: ctx.session.user.id, action: "JOB_SLOT_EXCEEDED", payload: { jobPostId: input.jobPostId } },
-        });
-        throw new TRPCError({ code: "FORBIDDEN", message: "Job slot limit reached" });
-      }
+      await assertJobSlotAvailable(ctx.prisma, ctx.session.user.id, workspaceId, input.jobPostId);
 
       const now = new Date();
       const expiresAt = new Date(now.getTime() + THIRTY_DAYS_MS);
@@ -98,6 +106,7 @@ export const jobPostRouter = router({
         where: { id: input.jobPostId, workspaceId },
         data: { status: "ACTIVE", activatedAt: now, expiresAt },
       });
+      await refreshJobPostEmbedding(jobPost.id);
       return { status: jobPost.status, expiresAt: jobPost.expiresAt! };
     }),
 
@@ -168,6 +177,42 @@ export const jobPostRouter = router({
         where: { id: input.jobPostId, workspaceId },
         data: { status: "ARCHIVED" },
       });
+    }),
+
+  pause: employerProcedure
+    .input(z.object({ jobPostId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
+      return ctx.prisma.jobPost.update({
+        where: { id: input.jobPostId, workspaceId, status: "ACTIVE" },
+        data: { status: "PAUSED" },
+      });
+    }),
+
+  resume: employerProcedure
+    .input(z.object({ jobPostId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
+      await ctx.prisma.jobPost.findUniqueOrThrow({
+        where: { id: input.jobPostId, workspaceId, status: "PAUSED" },
+      });
+      // Same rule as DRAFT → ACTIVE (FRS §8): re-check the live slot count on resume too.
+      await assertJobSlotAvailable(ctx.prisma, ctx.session.user.id, workspaceId, input.jobPostId);
+      return ctx.prisma.jobPost.update({
+        where: { id: input.jobPostId, workspaceId },
+        data: { status: "ACTIVE" },
+      });
+    }),
+
+  deleteDraft: employerProcedure
+    .input(z.object({ jobPostId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
+      await ctx.prisma.jobPost.findUniqueOrThrow({
+        where: { id: input.jobPostId, workspaceId, status: "DRAFT" },
+      });
+      await ctx.prisma.jobPost.delete({ where: { id: input.jobPostId } });
+      return { deleted: true as const };
     }),
 
   list: employerProcedure.query(async ({ ctx }) => {

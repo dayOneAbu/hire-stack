@@ -50,3 +50,24 @@ export async function createPortalSession(customerId: string) {
     return_url: `${APP_URL}/settings/billing`,
   });
 }
+
+// Connect (Phase 9, FRS §21) — separate charges and transfers, not manual-capture holds
+// (manual capture auto-cancels in 7-30 days, too short for a multi-week hiring engagement).
+export async function createConnectAccount(candidateId: string) {
+  const account = await stripe.accounts.create({
+    type: "express",
+    capabilities: { transfers: { requested: true } },
+    metadata: { candidateId },
+  });
+  return account.id;
+}
+
+export async function createAccountOnboardingLink(accountId: string) {
+  const link = await stripe.accountLinks.create({
+    account: accountId,
+    refresh_url: `${APP_URL}/payout-settings`,
+    return_url: `${APP_URL}/payout-settings`,
+    type: "account_onboarding",
+  });
+  return link.url;
+}

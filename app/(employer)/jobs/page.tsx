@@ -13,11 +13,12 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Archive, Briefcase, Copy, KanbanSquare, MoreHorizontal, Pencil, Plus } from "lucide-react";
+import { Archive, Briefcase, Copy, KanbanSquare, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
 
 const STATUS_TONE: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
   ACTIVE: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
+  PAUSED: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
   EXPIRED: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400",
   FILLED: "bg-primary/10 text-primary",
 };
@@ -31,10 +32,26 @@ export default function JobsPage() {
   });
   const clone = trpc.employer.jobPost.cloneFrom.useMutation({
     onSuccess: () => utils.employer.jobPost.list.invalidate(),
+    onError: (e) => toast.error(e.message),
   });
   const archive = trpc.employer.jobPost.archive.useMutation({
     onSuccess: () => {
       toast.success("Job post archived");
+      utils.employer.jobPost.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const pause = trpc.employer.jobPost.pause.useMutation({
+    onSuccess: () => utils.employer.jobPost.list.invalidate(),
+    onError: (e) => toast.error(e.message),
+  });
+  const resume = trpc.employer.jobPost.resume.useMutation({
+    onSuccess: () => utils.employer.jobPost.list.invalidate(),
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteDraft = trpc.employer.jobPost.deleteDraft.useMutation({
+    onSuccess: () => {
+      toast.success("Draft deleted");
       utils.employer.jobPost.list.invalidate();
     },
     onError: (e) => toast.error(e.message),
@@ -57,6 +74,15 @@ export default function JobsPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <Skeleton className="h-40 w-full" />
           <Skeleton className="h-40 w-full" />
+        </div>
+      )}
+
+      {jobs.isError && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <p className="text-sm text-muted-foreground">Couldn&apos;t load job posts.</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => jobs.refetch()}>
+            Retry
+          </Button>
         </div>
       )}
 
@@ -107,6 +133,23 @@ export default function JobsPage() {
                   Activate
                 </Button>
               )}
+              {job.status === "ACTIVE" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => pause.mutate({ jobPostId: job.id })}
+                  disabled={pause.isPending}
+                >
+                  <Pause className="size-3.5" />
+                  Pause
+                </Button>
+              )}
+              {job.status === "PAUSED" && (
+                <Button size="sm" onClick={() => resume.mutate({ jobPostId: job.id })} disabled={resume.isPending}>
+                  <Play className="size-3.5" />
+                  Resume
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -124,13 +167,27 @@ export default function JobsPage() {
                     <Copy className="size-3.5" />
                     Clone
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => archive.mutate({ jobPostId: job.id })}
-                  >
-                    <Archive className="size-3.5" />
-                    Archive
-                  </DropdownMenuItem>
+                  {job.status === "DRAFT" ? (
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => {
+                        if (window.confirm("Delete this draft job post? This can't be undone.")) {
+                          deleteDraft.mutate({ jobPostId: job.id });
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-3.5" />
+                      Delete draft
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => archive.mutate({ jobPostId: job.id })}
+                    >
+                      <Archive className="size-3.5" />
+                      Archive
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </CardFooter>

@@ -3,13 +3,31 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Search, UserX } from "lucide-react";
+import { toast } from "sonner";
 
 export default function UsersPage() {
   const [query, setQuery] = useState("");
+  const utils = trpc.useUtils();
   const results = trpc.admin.users.search.useQuery({ query }, { enabled: query.length > 0 });
+  const suspend = trpc.admin.users.suspend.useMutation({
+    onSuccess: () => {
+      toast.success("User suspended");
+      utils.admin.users.search.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const reinstate = trpc.admin.users.reinstate.useMutation({
+    onSuccess: () => {
+      toast.success("User reinstated");
+      utils.admin.users.search.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 p-6 py-10">
@@ -31,6 +49,22 @@ export default function UsersPage() {
       </div>
 
       <div className="space-y-3">
+        {results.isLoading && (
+          <>
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </>
+        )}
+
+        {results.isError && (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
+            <p className="text-sm text-muted-foreground">Couldn&apos;t load search results.</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => results.refetch()}>
+              Retry
+            </Button>
+          </div>
+        )}
+
         {results.data?.map((u) => (
           <Card key={u.id}>
             <CardHeader>
@@ -55,10 +89,39 @@ export default function UsersPage() {
                 )}
               </CardContent>
             )}
+            <CardFooter className="justify-end">
+              {u.deletedAt ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={reinstate.isPending}
+                  onClick={() => reinstate.mutate({ userId: u.id })}
+                >
+                  Reinstate
+                </Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={suspend.isPending}
+                  onClick={() => {
+                    if (window.confirm(`Suspend ${u.name ?? u.email}? They will be unable to sign in.`)) {
+                      suspend.mutate({ userId: u.id });
+                    }
+                  }}
+                >
+                  Suspend
+                </Button>
+              )}
+            </CardFooter>
           </Card>
         ))}
         {query.length > 0 && results.data?.length === 0 && (
-          <p className="py-10 text-center text-sm text-muted-foreground">No users found.</p>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
+            <UserX className="size-8 text-muted-foreground" />
+            <p className="mt-3 text-sm font-medium text-foreground">No users found</p>
+            <p className="mt-1 text-sm text-muted-foreground">Try a different name or email.</p>
+          </div>
         )}
       </div>
     </div>

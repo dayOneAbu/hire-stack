@@ -117,6 +117,7 @@ enum PaymentStatus {
 enum AuditAction {
   USER_LOGIN
   USER_SUSPENDED
+  USER_REINSTATED
   PROFILE_PUBLISHED
   RESUME_PARSED
   STRIPE_WEBHOOK_RECEIVED
@@ -138,28 +139,28 @@ enum Proficiency {
 // ---------------------------------------------------------------------------
 
 model User {
-  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email               String         @unique
-  emailVerified       Boolean        @default(false)
+  id                  String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String     @unique
+  emailVerified       Boolean    @default(false)
   name                String?
   image               String?
-  role                SystemRole     @default(CANDIDATE)
+  role                SystemRole @default(CANDIDATE)
   deletedAt           DateTime?
   lastLoginAt         DateTime?
-  failedLoginAttempts Int            @default(0)
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  failedLoginAttempts Int        @default(0)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
-  sessions            Session[]
-  accounts            Account[]
+  sessions Session[]
+  accounts Account[]
 
-  candidateProfile    Candidate?
-  employerMember      EmployerStaff?
-  authoredNotes       Note[]
-  sentMessages        Message[]
-  savedSearches       SavedSearch[]
-  referrals           Referral[]
-  auditLogs           AuditTrail[]
+  candidateProfile Candidate?
+  employerMember   EmployerStaff?
+  authoredNotes    Note[]
+  sentMessages     Message[]
+  savedSearches    SavedSearch[]
+  referrals        Referral[]
+  auditLogs        AuditTrail[]
 
   @@index([email])
   @@map("user")
@@ -218,29 +219,29 @@ model Verification {
 // ---------------------------------------------------------------------------
 
 model Workspace {
-  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                 String
-  slug                 String              @unique
-  stripeCustomerId     String?             @unique
-  stripeSubscriptionId String?             @unique
-  subscriptionTier     SubscriptionTier    @default(FREE)
-  subscriptionStatus   SubscriptionStatus  @default(INCOMPLETE)
-  jobSlotLimit         Int                 @default(0)
-  hasConsultation      Boolean             @default(false)
-  hasHireAssist        Boolean             @default(false)
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  slug                 String             @unique
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  subscriptionTier     SubscriptionTier   @default(FREE)
+  subscriptionStatus   SubscriptionStatus @default(INCOMPLETE)
+  jobSlotLimit         Int                @default(0)
+  hasConsultation      Boolean            @default(false)
+  hasHireAssist        Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
-  staffMembers         EmployerStaff[]
-  jobPosts             JobPost[]
-  savedSearches        SavedSearch[]
+  staffMembers  EmployerStaff[]
+  jobPosts      JobPost[]
+  savedSearches SavedSearch[]
 
   @@index([stripeSubscriptionId])
 }
 
 model EmployerStaff {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String    @db.Uuid @unique
+  userId      String    @unique @db.Uuid
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspaceId String    @db.Uuid
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -264,22 +265,22 @@ model Industry {
   mergedIntoId String?        @db.Uuid
   createdAt    DateTime       @default(now())
 
-  softwares    Software[]
-  skills       Skill[]
-  jobPosts     JobPost[]
+  softwares Software[]
+  skills    Skill[]
+  jobPosts  JobPost[]
 
   @@index([status])
 }
 
 model Software {
-  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  industryId      String                @db.Uuid
-  industry        Industry              @relation(fields: [industryId], references: [id], onDelete: Cascade)
-  name            String                @unique
-  normalizedSlug  String                @unique
-  status          TaxonomyStatus        @default(SUGGESTED_BY_AI)
-  mergedIntoId    String?               @db.Uuid
-  createdAt       DateTime              @default(now())
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  industryId     String         @db.Uuid
+  industry       Industry       @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  name           String         @unique
+  normalizedSlug String         @unique
+  status         TaxonomyStatus @default(SUGGESTED_BY_AI)
+  mergedIntoId   String?        @db.Uuid
+  createdAt      DateTime       @default(now())
 
   candidateUsage  CandidateSoftware[]
   jobRequirements JobRequiredSoftware[]
@@ -288,12 +289,12 @@ model Software {
 }
 
 model Skill {
-  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  industryId      String             @db.Uuid
-  industry        Industry           @relation(fields: [industryId], references: [id], onDelete: Cascade)
-  name            String             @unique
-  status          TaxonomyStatus     @default(APPROVED_GLOBAL)
-  createdAt       DateTime           @default(now())
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  industryId String         @db.Uuid
+  industry   Industry       @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  name       String         @unique
+  status     TaxonomyStatus @default(APPROVED_GLOBAL)
+  createdAt  DateTime       @default(now())
 
   candidateUsage  CandidateSkill[]
   jobRequirements JobRequiredSkill[]
@@ -304,68 +305,92 @@ model Skill {
 // ---------------------------------------------------------------------------
 
 model Candidate {
-  id                     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId                 String              @db.Uuid @unique
-  user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                     String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                 String       @unique @db.Uuid
+  user                   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   firstName              String
   lastName               String
   avatarUrl              String?
-  bio                    String?             @db.Text
+  bio                    String?      @db.Text
   rawResumeUrl           String?
   resumeParseStatus      ParseStatus?
-  targetHourlyRateMin    Decimal?            @db.Decimal(10, 2)
-  targetHourlyRateMax    Decimal?            @db.Decimal(10, 2)
-  weeklyAvailability     Int                 @default(40)
-  isSearchable           Boolean             @default(false)
-  stripeConnectAccountId String?             @unique
-  payoutsEnabled         Boolean             @default(false)
-  createdAt              DateTime            @default(now())
-  updatedAt              DateTime            @updatedAt
+  targetHourlyRateMin    Decimal?     @db.Decimal(10, 2)
+  targetHourlyRateMax    Decimal?     @db.Decimal(10, 2)
+  weeklyAvailability     Int          @default(40)
+  isSearchable           Boolean      @default(false)
+  stripeConnectAccountId String?      @unique
+  payoutsEnabled         Boolean      @default(false)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
-  employmentHistory   EmploymentPeriod[]
-  softwareInventory   CandidateSoftware[]
-  skillInventory      CandidateSkill[]
-  jobApplications     JobApplication[]
-  savedJobs           SavedJob[]
-  payments            Payment[]
+  employmentHistory EmploymentPeriod[]
+  softwareInventory CandidateSoftware[]
+  skillInventory    CandidateSkill[]
+  jobApplications   JobApplication[]
+  savedJobs         SavedJob[]
+  payments          Payment[]
+  chunks            CandidateChunk[]
 
   @@index([isSearchable])
   @@index([targetHourlyRateMin, targetHourlyRateMax])
 }
 
 model EmploymentPeriod {
-  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  candidateId          String              @db.Uuid
-  candidate            Candidate           @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId          String          @db.Uuid
+  candidate            Candidate       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   companyName          String
   jobTitle             String
   startDate            DateTime
   endDate              DateTime?
-  description          String?             @db.Text
-  documentedHourlyRate Decimal?            @db.Decimal(10, 2)
+  description          String?         @db.Text
+  documentedHourlyRate Decimal?        @db.Decimal(10, 2)
   employmentType       EmploymentType?
-  isUserVerified       Boolean             @default(false)
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  isUserVerified       Boolean         @default(false)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 
-  anomaliesDetected    EmploymentAnomaly[]
+  anomaliesDetected EmploymentAnomaly[]
 
   @@index([candidateId])
 }
 
 model EmploymentAnomaly {
-  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  employmentPeriodId String                  @db.Uuid
-  employmentPeriod   EmploymentPeriod        @relation(fields: [employmentPeriodId], references: [id], onDelete: Cascade)
+  id                 String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employmentPeriodId String                       @db.Uuid
+  employmentPeriod   EmploymentPeriod             @relation(fields: [employmentPeriodId], references: [id], onDelete: Cascade)
   ruleType           AmbiguityRule
   confidenceScore    Float
-  systemNote         String                  @db.Text
-  status             ClarificationResolution @default(PENDING_CANDIDATE)
-  candidateAnswer    String?                 @db.Text
+  systemNote         String                       @db.Text
+  status             ClarificationResolution      @default(PENDING_CANDIDATE)
+  candidateAnswer    String?                      @db.Text
   resolvedAt         DateTime?
-  createdAt          DateTime                @default(now())
+  createdAt          DateTime                     @default(now())
+  embedding          Unsupported("vector(1024)")?
 
   @@index([employmentPeriodId])
+}
+
+// RAG: chunks are built from structured verified data (bio, employment periods,
+// software/skill inventory) — raw resume text is never stored (FRS §3).
+model CandidateChunk {
+  id          String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId String                       @db.Uuid
+  candidate   Candidate                    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  source      String
+  content     String                       @db.Text
+  embedding   Unsupported("vector(1024)")?
+  createdAt   DateTime                     @default(now())
+
+  @@index([candidateId])
+}
+
+model JobPostEmbedding {
+  jobPostId String                       @id @db.Uuid
+  jobPost   JobPost                      @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  content   String                       @db.Text
+  embedding Unsupported("vector(1024)")?
+  updatedAt DateTime                     @updatedAt
 }
 
 model CandidateSoftware {
@@ -397,26 +422,27 @@ model CandidateSkill {
 // ---------------------------------------------------------------------------
 
 model JobPost {
-  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workspaceId      String                @db.Uuid
-  workspace        Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  industryId       String                @db.Uuid
-  industry         Industry              @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String    @db.Uuid
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  industryId       String    @db.Uuid
+  industry         Industry  @relation(fields: [industryId], references: [id], onDelete: Cascade)
   title            String
-  description      String                @db.Text
-  status           JobStatus             @default(DRAFT)
+  description      String    @db.Text
+  status           JobStatus @default(DRAFT)
   activatedAt      DateTime?
   expiresAt        DateTime?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  targetRateMin    Decimal?              @db.Decimal(10, 2)
-  targetRateMax    Decimal?              @db.Decimal(10, 2)
-  requiredHoursMin Int                   @default(20)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  targetRateMin    Decimal?  @db.Decimal(10, 2)
+  targetRateMax    Decimal?  @db.Decimal(10, 2)
+  requiredHoursMin Int       @default(20)
 
   requiredSoftware JobRequiredSoftware[]
   requiredSkills   JobRequiredSkill[]
   applications     JobApplication[]
   savedBy          SavedJob[]
+  embedding        JobPostEmbedding?
 
   @@index([workspaceId])
   @@index([industryId])
@@ -445,26 +471,26 @@ model JobRequiredSkill {
 }
 
 model JobApplication {
-  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  jobPostId         String               @db.Uuid
-  jobPost           JobPost              @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
-  candidateId       String               @db.Uuid
-  candidate         Candidate            @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  source            ApplicationSource    @default(EMPLOYER_ADDED)
-  currentStage      KanbanStageType      @default(INBOX)
-  softwareScore     Int                  @default(0)
-  experienceScore   Int                  @default(0)
-  compScore         Int                  @default(0)
-  availabilityScore Int                  @default(0)
-  overallMatchScore Int                  @default(0)
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobPostId         String            @db.Uuid
+  jobPost           JobPost           @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  candidateId       String            @db.Uuid
+  candidate         Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  source            ApplicationSource @default(EMPLOYER_ADDED)
+  currentStage      KanbanStageType   @default(INBOX)
+  softwareScore     Int               @default(0)
+  experienceScore   Int               @default(0)
+  compScore         Int               @default(0)
+  availabilityScore Int               @default(0)
+  overallMatchScore Int               @default(0)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
-  notes             Note[]
-  messages          Message[]
-  offer             Offer?
-  payments          Payment[]
-  stageHistory      ApplicationHistory[]
+  notes        Note[]
+  messages     Message[]
+  offer        Offer?
+  payments     Payment[]
+  stageHistory ApplicationHistory[]
 
   @@unique([jobPostId, candidateId])
   @@index([jobPostId])
@@ -486,7 +512,7 @@ model Message {
 
 model Offer {
   id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  applicationId String         @db.Uuid @unique
+  applicationId String         @unique @db.Uuid
   application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   documentUrl   String
   status        OfferStatus    @default(DRAFT)
@@ -499,20 +525,20 @@ model Offer {
 }
 
 model Payment {
-  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  applicationId          String         @db.Uuid
-  application            JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  candidateId            String         @db.Uuid
-  candidate              Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  amount                 Decimal        @db.Decimal(10, 2)
-  currency               String         @default("usd")
-  stripePaymentIntentId  String         @unique
-  stripeTransferId       String?        @unique
-  status                 PaymentStatus  @default(HELD)
-  heldAt                 DateTime       @default(now())
-  releasedAt             DateTime?
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId         String         @db.Uuid
+  application           JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  candidateId           String         @db.Uuid
+  candidate             Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  amount                Decimal        @db.Decimal(10, 2)
+  currency              String         @default("usd")
+  stripePaymentIntentId String         @unique
+  stripeTransferId      String?        @unique
+  status                PaymentStatus  @default(HELD)
+  heldAt                DateTime       @default(now())
+  releasedAt            DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   @@index([applicationId])
   @@index([status])
@@ -542,27 +568,27 @@ model SavedSearch {
 }
 
 model Referral {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  referrerId    String         @db.Uuid
-  referrer      User           @relation(fields: [referrerId], references: [id], onDelete: Cascade)
-  refereeEmail  String
-  status        ReferralStatus @default(PENDING)
-  rewardAmount  Decimal?       @db.Decimal(10, 2)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referrerId   String         @db.Uuid
+  referrer     User           @relation(fields: [referrerId], references: [id], onDelete: Cascade)
+  refereeEmail String
+  status       ReferralStatus @default(PENDING)
+  rewardAmount Decimal?       @db.Decimal(10, 2)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   @@index([referrerId])
 }
 
 model ApplicationHistory {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  applicationId String         @db.Uuid
-  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String          @db.Uuid
+  application   JobApplication  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   fromStage     KanbanStageType
   toStage       KanbanStageType
-  changedById   String?        @db.Uuid
-  reason        String?        @db.Text
-  createdAt     DateTime       @default(now())
+  changedById   String?         @db.Uuid
+  reason        String?         @db.Text
+  createdAt     DateTime        @default(now())
 
   @@index([applicationId])
 }

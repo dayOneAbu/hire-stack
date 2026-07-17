@@ -11,12 +11,16 @@ export function KanbanColumn({
   applications,
   onOpenNotes,
   onOpenMessages,
+  onOpenOffer,
+  onOpenAsk,
 }: {
   stage: string;
   label: string;
   applications: BoardApplication[];
   onOpenNotes: (applicationId: string) => void;
   onOpenMessages: (applicationId: string) => void;
+  onOpenOffer: (applicationId: string) => void;
+  onOpenAsk: (applicationId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
 
@@ -38,7 +42,14 @@ export function KanbanColumn({
       <SortableContext items={applications.map((a) => a.id)} strategy={verticalListSortingStrategy}>
         <div className="flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3">
           {applications.map((app) => (
-            <KanbanCard key={app.id} app={app} onOpenNotes={onOpenNotes} onOpenMessages={onOpenMessages} />
+            <KanbanCard
+              key={app.id}
+              app={app}
+              onOpenNotes={onOpenNotes}
+              onOpenMessages={onOpenMessages}
+              onOpenOffer={onOpenOffer}
+              onOpenAsk={onOpenAsk}
+            />
           ))}
           {applications.length === 0 && (
             <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border py-6 text-xs text-muted-foreground">

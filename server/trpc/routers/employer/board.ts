@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, employerProcedure } from "@/server/trpc/trpc";
 import { computeMatchScore } from "@/server/services/matchScore";
+import { computeFunnel } from "@/server/services/funnel";
 
 const kanbanStage = z.enum([
   "INBOX",
@@ -98,6 +99,54 @@ export const boardRouter = router({
       });
     }),
 
+  updateNote: employerProcedure
+    .input(z.object({ noteId: z.string().uuid(), content: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
+      const note = await ctx.prisma.note.findUniqueOrThrow({
+        where: { id: input.noteId },
+        include: { application: { include: { jobPost: true } } },
+      });
+      if (note.application.jobPost.workspaceId !== workspaceId) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      if (note.authorId !== ctx.session.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the author can edit this note" });
+      }
+      return ctx.prisma.note.update({ where: { id: input.noteId }, data: { content: input.content } });
+    }),
+
+  deleteNote: employerProcedure
+    .input(z.object({ noteId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
+      const note = await ctx.prisma.note.findUniqueOrThrow({
+        where: { id: input.noteId },
+        include: { application: { include: { jobPost: true } } },
+      });
+      if (note.application.jobPost.workspaceId !== workspaceId) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      // Any workspace staff may delete — notes are workspace-visible collaboration, not private (FRS §13).
+      await ctx.prisma.note.delete({ where: { id: input.noteId } });
+      return { deleted: true as const };
+    }),
+
+  removeCandidate: employerProcedure
+    .input(z.object({ applicationId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
+      const application = await ctx.prisma.jobApplication.findUniqueOrThrow({
+        where: { id: input.applicationId },
+        include: { jobPost: true },
+      });
+      if (application.jobPost.workspaceId !== workspaceId) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      await ctx.prisma.jobApplication.delete({ where: { id: input.applicationId } });
+      return { deleted: true as const };
+    }),
+
   list: employerProcedure.input(z.object({ jobPostId: z.string().uuid() })).query(async ({ ctx, input }) => {
     const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
     await assertJobPostInWorkspace(ctx.prisma, input.jobPostId, workspaceId);
@@ -105,5 +154,28 @@ export const boardRouter = router({
       where: { jobPostId: input.jobPostId },
       include: { notes: true, candidate: true },
     });
+  }),
+
+  // Per-job funnel: count currently in each stage, plus avg days spent in each stage by
+  // applications that have since moved on (ApplicationHistory already records every
+  // transition, so this is one aggregate read — no new data collection).
+  funnel: employerProcedure.input(z.object({ jobPostId: z.string().uuid() })).query(async ({ ctx, input }) => {
+    const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
+    await assertJobPostInWorkspace(ctx.prisma, input.jobPostId, workspaceId);
+
+    const [counts, history] = await Promise.all([
+      ctx.prisma.jobApplication.groupBy({
+        by: ["currentStage"],
+        where: { jobPostId: input.jobPostId },
+        _count: { _all: true },
+      }),
+      ctx.prisma.applicationHistory.findMany({
+        where: { application: { jobPostId: input.jobPostId } },
+        orderBy: { createdAt: "asc" },
+        select: { applicationId: true, toStage: true, createdAt: true },
+      }),
+    ]);
+
+    return computeFunnel(kanbanStage.options, counts, history);
   }),
 });

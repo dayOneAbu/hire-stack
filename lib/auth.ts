@@ -1,11 +1,21 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "@better-auth/prisma-adapter";
+import { createAuthMiddleware, APIError } from "better-auth/api";
 import { prisma } from "@/lib/prisma";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-in/email") return;
+      const user = await prisma.user.findUnique({ where: { email: ctx.body?.email } });
+      if (user?.deletedAt) {
+        throw new APIError("FORBIDDEN", { message: "This account has been suspended." });
+      }
+    }),
+  },
   // Schema defines ids as @db.Uuid (gen_random_uuid()) — let Postgres generate them
   // instead of BetterAuth's default nanoid strings, which violate the uuid column type.
   advanced: {

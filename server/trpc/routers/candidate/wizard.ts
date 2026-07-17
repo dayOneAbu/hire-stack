@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { router, candidateProcedure } from "@/server/trpc/trpc";
 import { recomputeIsSearchable } from "@/server/services/publishGate";
 import { runAnomalyRules } from "@/server/services/anomalyRules";
+import { refreshAnomalyEmbedding } from "@/server/services/embeddings";
 
 const EMPLOYMENT_TYPE_MAP = {
   ONE_EMPLOYER: "EMPLOYEE",
@@ -116,6 +117,7 @@ export const wizardRouter = router({
           where: { id: anomaly.id },
           data: { status: "RESOLVED_BY_CANDIDATE" },
         });
+        await refreshAnomalyEmbedding(anomaly.id);
       }
 
       const isSearchable = await recomputeIsSearchable(candidateId);
@@ -132,6 +134,7 @@ export const wizardRouter = router({
         where: { id: input.anomalyId },
         data: { status: "RESOLVED_BY_CANDIDATE", candidateAnswer: input.answer, resolvedAt: new Date() },
       });
+      await refreshAnomalyEmbedding(input.anomalyId);
 
       const isSearchable = await recomputeIsSearchable(candidateId);
       return { isSearchable };
@@ -151,6 +154,7 @@ export const wizardRouter = router({
         where: { id: input.anomalyId },
         data: { status: "RESOLVED_BY_CANDIDATE", resolvedAt: new Date() },
       });
+      await refreshAnomalyEmbedding(input.anomalyId);
 
       const isSearchable = await recomputeIsSearchable(candidateId);
       return { isSearchable };
@@ -212,6 +216,7 @@ export const wizardRouter = router({
           resolvedAt: new Date(),
         },
       });
+      await refreshAnomalyEmbedding(input.anomalyId);
 
       const isSearchable = await recomputeIsSearchable(candidateId);
       return { isSearchable };

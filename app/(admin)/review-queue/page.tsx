@@ -7,6 +7,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { ShieldAlert } from "lucide-react";
 
+function SimilarAnomalies({ anomalyId }: { anomalyId: string }) {
+  const similar = trpc.admin.reviewQueue.similarAnomalies.useQuery({ anomalyId });
+
+  if (similar.isLoading) return <Skeleton className="h-16 w-full" />;
+  if (similar.isError || !similar.data?.length) return null;
+
+  return (
+    <div className="w-full space-y-2 rounded-lg border border-dashed border-border bg-muted/40 p-3">
+      <p className="text-xs font-medium text-foreground">Similar past cases</p>
+      {similar.data.map((s) => (
+        <div key={s.id} className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{Math.round(s.similarity * 100)}% similar</span>{" "}
+          ({s.status.replace(/_/g, " ").toLowerCase()}) — {s.systemNote}
+          {s.candidateAnswer && <> · candidate said: &quot;{s.candidateAnswer}&quot;</>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ReviewQueuePage() {
   const queue = trpc.admin.reviewQueue.list.useQuery();
   const utils = trpc.useUtils();
@@ -35,6 +55,15 @@ export default function ReviewQueuePage() {
         </div>
       )}
 
+      {queue.isError && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <p className="text-sm text-muted-foreground">Couldn&apos;t load the review queue.</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => queue.refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       {queue.data?.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
           <ShieldAlert className="size-8 text-muted-foreground" />
@@ -52,22 +81,25 @@ export default function ReviewQueuePage() {
               </CardTitle>
               <CardDescription>{a.systemNote}</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                onClick={() => resolve.mutate({ anomalyId: a.id, status: "OVERRIDDEN_BY_ADMIN" })}
-                disabled={resolve.isPending}
-              >
-                Override & resolve
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => resolve.mutate({ anomalyId: a.id, status: "IGNORED" })}
-                disabled={resolve.isPending}
-              >
-                Ignore
-              </Button>
+            <CardContent className="flex flex-col items-start gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => resolve.mutate({ anomalyId: a.id, status: "OVERRIDDEN_BY_ADMIN" })}
+                  disabled={resolve.isPending}
+                >
+                  Override & resolve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => resolve.mutate({ anomalyId: a.id, status: "IGNORED" })}
+                  disabled={resolve.isPending}
+                >
+                  Ignore
+                </Button>
+              </div>
+              <SimilarAnomalies anomalyId={a.id} />
             </CardContent>
           </Card>
         ))}

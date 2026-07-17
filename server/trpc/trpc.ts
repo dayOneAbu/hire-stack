@@ -4,6 +4,10 @@ import type { TRPCContext } from "@/server/trpc/context";
 
 const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,
+  sse: {
+    ping: { enabled: true, intervalMs: 3000 },
+    client: { reconnectAfterInactivityMs: 5000 },
+  },
 });
 
 export const router = t.router;
@@ -40,6 +44,7 @@ export const candidateProcedure = protectedProcedure.use(requireRole("CANDIDATE"
 export const employerProcedure = protectedProcedure.use(
   requireRole("EMPLOYER_OWNER", "EMPLOYER_RECRUITER"),
 );
+export const employerOwnerProcedure = protectedProcedure.use(requireRole("EMPLOYER_OWNER"));
 export const adminProcedure = protectedProcedure.use(
   requireRole("SUPER_ADMIN", "PLATFORM_OPERATOR"),
 );
