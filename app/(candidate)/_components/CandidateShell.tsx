@@ -5,11 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { CreditCard, LayoutDashboard, LogOut, ShieldCheck, UserRound } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/profile", label: "Profile", icon: UserRound },
+  { href: "/payout-settings", label: "Payouts", icon: CreditCard },
 ];
 
 export function CandidateShell({ children }: { children: React.ReactNode }) {

@@ -6,6 +6,7 @@ import { employmentPeriodRouter } from "@/server/trpc/routers/candidate/employme
 import { jobsRouter } from "@/server/trpc/routers/candidate/jobs";
 import { profileRouter } from "@/server/trpc/routers/candidate/profile";
 import { offerRouter } from "@/server/trpc/routers/candidate/offer";
+import { payoutRouter } from "@/server/trpc/routers/candidate/payout";
 
 export const candidateRouter = router({
   resume: resumeRouter,
@@ -15,4 +16,5 @@ export const candidateRouter = router({
   jobs: jobsRouter,
   profile: profileRouter,
   offer: offerRouter,
+  payout: payoutRouter,
 });
