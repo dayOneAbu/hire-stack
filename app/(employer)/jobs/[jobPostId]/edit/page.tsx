@@ -20,11 +20,22 @@ export default function EditJobPostPage({ params }: { params: Promise<{ jobPostI
   const { jobPostId } = use(params);
   const job = trpc.employer.jobPost.byId.useQuery({ id: jobPostId });
 
-  if (job.isLoading || !job.data) {
+  if (job.isLoading) {
     return (
       <div className="mx-auto w-full max-w-2xl space-y-6 p-6 py-10">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  if (job.isError || !job.data) {
+    return (
+      <div className="mx-auto flex w-full max-w-2xl flex-col items-center justify-center space-y-3 p-6 py-20 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load this job post.</p>
+        <Button variant="outline" size="sm" onClick={() => job.refetch()}>
+          Retry
+        </Button>
       </div>
     );
   }

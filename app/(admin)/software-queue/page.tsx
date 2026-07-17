@@ -41,6 +41,15 @@ export default function SoftwareQueuePage() {
         </div>
       )}
 
+      {queue.isError && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <p className="text-sm text-muted-foreground">Couldn&apos;t load the software queue.</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => queue.refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       {queue.data?.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
           <PackageSearch className="size-8 text-muted-foreground" />

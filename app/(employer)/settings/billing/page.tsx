@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 const TIERS = [
@@ -33,6 +34,27 @@ export default function BillingPage() {
         <p className="mt-1 text-sm text-muted-foreground">Manage your subscription and one-time purchases.</p>
       </div>
 
+      {status.isLoading && (
+        <div className="space-y-4">
+          <Skeleton className="h-24 w-full" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        </div>
+      )}
+
+      {status.isError && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
+          <p className="text-sm text-muted-foreground">Couldn&apos;t load billing status.</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => status.refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {!status.isLoading && !status.isError && (
+      <>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -40,9 +62,7 @@ export default function BillingPage() {
             {status.data && <Badge variant="outline">{status.data.subscriptionTier}</Badge>}
           </CardTitle>
           <CardDescription>
-            {status.data
-              ? `${status.data.subscriptionStatus} · ${status.data.jobSlotLimit} active job slot(s)`
-              : "Loading..."}
+            {status.data && `${status.data.subscriptionStatus} · ${status.data.jobSlotLimit} active job slot(s)`}
           </CardDescription>
         </CardHeader>
         {status.data?.hasCustomer && (
@@ -96,6 +116,8 @@ export default function BillingPage() {
           </Button>
         </CardContent>
       </Card>
+      </>
+      )}
     </div>
   );
 }

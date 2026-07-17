@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -105,12 +105,15 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
   const [draft, setDraft] = useState("");
 
   const messages = trpc.messages.list.useQuery({ applicationId: id });
-  const markRead = trpc.messages.markRead.useMutation();
+  const markRead = trpc.messages.markRead.useMutation({
+    onError: (e) => toast.error(e.message),
+  });
   const send = trpc.messages.send.useMutation({
     onSuccess: () => {
       utils.messages.list.invalidate({ applicationId: id });
       setDraft("");
     },
+    onError: (e) => toast.error(e.message),
   });
 
   useEffect(() => {
@@ -139,6 +142,13 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
 
       {messages.isLoading ? (
         <Skeleton className="h-64 w-full" />
+      ) : messages.isError ? (
+        <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border p-4 text-center">
+          <p className="text-sm text-muted-foreground">Couldn&apos;t load messages.</p>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => messages.refetch()}>
+            Retry
+          </Button>
+        </div>
       ) : (
         <div className="flex-1 space-y-2 overflow-y-auto rounded-lg border border-border p-4">
           {messages.data?.length ? (
@@ -156,7 +166,11 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
               </p>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">No messages yet.</p>
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <MessageSquare className="size-8 text-muted-foreground" />
+              <p className="mt-3 text-sm font-medium text-foreground">No messages yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">Send a message to get the conversation started.</p>
+            </div>
           )}
         </div>
       )}
