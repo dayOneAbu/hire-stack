@@ -40,6 +40,7 @@ export const candidateProcedure = protectedProcedure.use(requireRole("CANDIDATE"
 export const employerProcedure = protectedProcedure.use(
   requireRole("EMPLOYER_OWNER", "EMPLOYER_RECRUITER"),
 );
+export const employerOwnerProcedure = protectedProcedure.use(requireRole("EMPLOYER_OWNER"));
 export const adminProcedure = protectedProcedure.use(
   requireRole("SUPER_ADMIN", "PLATFORM_OPERATOR"),
 );
