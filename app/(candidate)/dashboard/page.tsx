@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Bookmark, BookmarkCheck, CheckCircle2, Clock, Inbox, Search } from "lucide-react";
+import { Bookmark, BookmarkCheck, CheckCircle2, Clock, Inbox, Search, Sparkles } from "lucide-react";
 
 function ProfileStatusCard() {
   const status = trpc.candidate.resume.status.useQuery();
@@ -163,6 +163,58 @@ function MatchedJobs() {
   );
 }
 
+function RecommendedJobs() {
+  const recommended = trpc.candidate.jobs.recommended.useQuery();
+
+  if (recommended.isLoading) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    );
+  }
+
+  if (recommended.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load recommendations.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => recommended.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (!recommended.data?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center">
+        <Sparkles className="size-8 text-muted-foreground" />
+        <p className="mt-3 text-sm font-medium text-foreground">No recommendations yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Finish your profile so we can match you against open roles.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {recommended.data.map(({ jobPost, similarity }) => (
+        <Card key={jobPost.id}>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between gap-2">
+              <span>{jobPost.title}</span>
+              <Badge variant="secondary">{Math.round(similarity * 100)}% fit</Badge>
+            </CardTitle>
+            <CardDescription className="line-clamp-2">{jobPost.description}</CardDescription>
+          </CardHeader>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function MyApplications() {
   const utils = trpc.useUtils();
   const applications = trpc.candidate.jobs.myApplications.useQuery();
@@ -294,6 +346,11 @@ export default function DashboardPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">Matched jobs</h2>
         <MatchedJobs />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">Recommended for you</h2>
+        <RecommendedJobs />
       </section>
 
       <section className="space-y-3">

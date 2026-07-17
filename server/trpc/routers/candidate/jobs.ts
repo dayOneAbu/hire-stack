@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { router, candidateProcedure } from "@/server/trpc/trpc";
 import { computeMatchScore } from "@/server/services/matchScore";
 import { canWithdraw } from "@/server/services/applicationWithdraw";
+import { meanCandidateEmbedding, searchJobPosts } from "@/server/services/embeddings";
 
 async function getCandidateId(prisma: typeof import("@/lib/prisma").prisma, userId: string) {
   const candidate = await prisma.candidate.findUniqueOrThrow({ where: { userId } });
@@ -20,6 +21,27 @@ export const jobsRouter = router({
       })),
     );
     return scored.sort((a, b) => b.overallScore - a.overallScore);
+  }),
+
+  // Semantic "recommended for you": mean of the candidate's own chunk embeddings vs
+  // JobPostEmbedding, distinct from `matched`'s deterministic FRS §10 score.
+  recommended: candidateProcedure.query(async ({ ctx }) => {
+    const candidateId = await getCandidateId(ctx.prisma, ctx.session.user.id);
+    const meanEmbedding = await meanCandidateEmbedding(candidateId);
+    if (!meanEmbedding) return [];
+
+    const matches = await searchJobPosts(meanEmbedding, 10);
+    const jobPosts = await ctx.prisma.jobPost.findMany({
+      where: { id: { in: matches.map((m) => m.jobPostId) } },
+    });
+    const byId = new Map(jobPosts.map((j) => [j.id, j]));
+
+    return matches
+      .map((m) => {
+        const jobPost = byId.get(m.jobPostId);
+        return jobPost ? { jobPost, similarity: m.similarity } : null;
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
   }),
 
   applyToJob: candidateProcedure

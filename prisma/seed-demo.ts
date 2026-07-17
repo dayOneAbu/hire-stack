@@ -66,6 +66,7 @@ async function main() {
       targetHourlyRateMin: 10,
       targetHourlyRateMax: 16,
       weeklyAvailability: 35,
+      resumeParseStatus: "PARSED",
     },
   });
   await prisma.user.update({ where: { id: candidateUser.id }, data: { emailVerified: true } });
@@ -195,6 +196,7 @@ async function main() {
         targetHourlyRateMin: seed.rateMin,
         targetHourlyRateMax: seed.rateMax,
         weeklyAvailability: 30,
+        resumeParseStatus: "PARSED",
       },
     });
     await prisma.user.update({ where: { id: user.id }, data: { emailVerified: true } });
