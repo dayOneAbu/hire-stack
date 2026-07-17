@@ -3,13 +3,30 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
+import { toast } from "sonner";
 
 export default function UsersPage() {
   const [query, setQuery] = useState("");
+  const utils = trpc.useUtils();
   const results = trpc.admin.users.search.useQuery({ query }, { enabled: query.length > 0 });
+  const suspend = trpc.admin.users.suspend.useMutation({
+    onSuccess: () => {
+      toast.success("User suspended");
+      utils.admin.users.search.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const reinstate = trpc.admin.users.reinstate.useMutation({
+    onSuccess: () => {
+      toast.success("User reinstated");
+      utils.admin.users.search.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 p-6 py-10">
@@ -55,6 +72,31 @@ export default function UsersPage() {
                 )}
               </CardContent>
             )}
+            <CardFooter className="justify-end">
+              {u.deletedAt ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={reinstate.isPending}
+                  onClick={() => reinstate.mutate({ userId: u.id })}
+                >
+                  Reinstate
+                </Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={suspend.isPending}
+                  onClick={() => {
+                    if (window.confirm(`Suspend ${u.name ?? u.email}? They will be unable to sign in.`)) {
+                      suspend.mutate({ userId: u.id });
+                    }
+                  }}
+                >
+                  Suspend
+                </Button>
+              )}
+            </CardFooter>
           </Card>
         ))}
         {query.length > 0 && results.data?.length === 0 && (
