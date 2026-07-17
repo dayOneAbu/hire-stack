@@ -3,7 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
-import { MessageSquarePlus } from "lucide-react";
+import { MessageSquarePlus, MessagesSquare } from "lucide-react";
 
 export type BoardApplication = {
   id: string;
@@ -23,9 +23,11 @@ function scoreTone(score: number | null) {
 export function KanbanCard({
   app,
   onOpenNotes,
+  onOpenMessages,
 }: {
   app: BoardApplication;
   onOpenNotes: (applicationId: string) => void;
+  onOpenMessages?: (applicationId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: app.id,
@@ -63,18 +65,34 @@ export function KanbanCard({
         </div>
       </div>
 
-      <button
-        type="button"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          onOpenNotes(app.id);
-        }}
-        className="mt-3 flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <MessageSquarePlus className="size-3.5" />
-        {app.notes.length > 0 ? `${app.notes.length} note${app.notes.length === 1 ? "" : "s"}` : "Add note"}
-      </button>
+      <div className="mt-3 flex items-center gap-1">
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenNotes(app.id);
+          }}
+          className="flex flex-1 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <MessageSquarePlus className="size-3.5" />
+          {app.notes.length > 0 ? `${app.notes.length} note${app.notes.length === 1 ? "" : "s"}` : "Add note"}
+        </button>
+        {onOpenMessages && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenMessages(app.id);
+            }}
+            className="flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <MessagesSquare className="size-3.5" />
+            Message
+          </button>
+        )}
+      </div>
     </div>
   );
 }

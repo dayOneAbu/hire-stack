@@ -5,11 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Briefcase, LogOut, Search, ShieldCheck } from "lucide-react";
+import { Briefcase, CreditCard, LogOut, Search, ShieldCheck } from "lucide-react";
 
 const NAV = [
   { href: "/jobs", label: "Job posts", icon: Briefcase },
   { href: "/search", label: "Search candidates", icon: Search },
+  { href: "/settings/billing", label: "Billing", icon: CreditCard },
 ];
 
 export function EmployerShell({ children }: { children: React.ReactNode }) {

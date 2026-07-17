@@ -136,10 +136,14 @@ function MyApplications() {
   return (
     <div className="space-y-2">
       {applications.data.map((app) => (
-        <div key={app.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+        <Link
+          key={app.id}
+          href={`/applications/${app.id}`}
+          className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted"
+        >
           <span className="text-sm font-medium">{app.jobPost.title}</span>
           <Badge variant="secondary">{app.currentStage}</Badge>
-        </div>
+        </Link>
       ))}
     </div>
   );
