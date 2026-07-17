@@ -8,8 +8,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Lock, Search, UserPlus } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, Lock, Search, Trash2, UserPlus } from "lucide-react";
 
 type FullCandidate = Extract<RouterOutputs["employer"]["search"]["candidates"], { mode: "full" }>["results"][number];
 
@@ -67,11 +73,77 @@ export default function SearchPage() {
     { enabled: !!industryId },
   );
 
+  const utils = trpc.useUtils();
+  const savedSearches = trpc.employer.savedSearch.list.useQuery();
+  const saveSearch = trpc.employer.savedSearch.save.useMutation({
+    onSuccess: () => {
+      toast.success("Search saved");
+      utils.employer.savedSearch.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteSearch = trpc.employer.savedSearch.delete.useMutation({
+    onSuccess: () => utils.employer.savedSearch.list.invalidate(),
+    onError: (e) => toast.error(e.message),
+  });
+
+  function recallSearch(filters: Record<string, unknown>) {
+    if (typeof filters.industryId === "string") setIndustryId(filters.industryId);
+    setPage(1);
+  }
+
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 p-6 py-10">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Search candidates</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Filter by industry and optionally score against a job post.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Search candidates</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Filter by industry and optionally score against a job post.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!industryId || saveSearch.isPending}
+            onClick={() => {
+              const name = window.prompt("Name this search");
+              if (name) saveSearch.mutate({ name, filters: { industryId, jobPostId: jobPostId || undefined } });
+            }}
+          >
+            <Bookmark className="size-3.5" />
+            Save this search
+          </Button>
+          {!!savedSearches.data?.length && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="outline" size="sm">
+                    Saved searches
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end">
+                {savedSearches.data.map((s) => {
+                  const filters = s.filters as Record<string, unknown>;
+                  return (
+                    <DropdownMenuItem key={s.id} onClick={() => recallSearch(filters)}>
+                      <span className="flex-1 truncate">{typeof filters.name === "string" ? filters.name : "Untitled"}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteSearch.mutate({ savedSearchId: s.id });
+                        }}
+                        className="ml-2 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row">
