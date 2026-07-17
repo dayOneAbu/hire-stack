@@ -36,6 +36,30 @@ export default function SignInPage() {
     }
   }
 
+  async function signInDemo(email: string) {
+    setError(null);
+    setLoading(true);
+    const { data, error: signInError } = await authClient.signIn.email({
+      email,
+      password: "demopass1234",
+    });
+    setLoading(false);
+    if (signInError) {
+      setError(signInError.message ?? "Demo sign in failed.");
+      return;
+    }
+    const role = (data?.user as { role?: string } | undefined)?.role;
+    if (role === "EMPLOYER_OWNER" || role === "EMPLOYER_RECRUITER") {
+      router.push("/jobs");
+    } else if (role === "SUPER_ADMIN" || role === "PLATFORM_OPERATOR") {
+      router.push("/review-queue");
+    } else {
+      router.push("/onboarding");
+    }
+  }
+
+  const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
   return (
     <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center p-6">
       <Card className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300">
@@ -64,6 +88,43 @@ export default function SignInPage() {
               Sign in
             </Button>
           </form>
+          {demoMode && (
+            <div className="mt-4 space-y-2 border-t pt-4">
+              <p className="text-center text-xs text-muted-foreground">Demo as</p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  disabled={loading}
+                  onClick={() => signInDemo("demo-candidate@hirestack.dev")}
+                >
+                  Candidate
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  disabled={loading}
+                  onClick={() => signInDemo("demo-employer@hirestack.dev")}
+                >
+                  Employer
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  disabled={loading}
+                  onClick={() => signInDemo("demo-admin@hirestack.dev")}
+                >
+                  Admin
+                </Button>
+              </div>
+            </div>
+          )}
           <p className="mt-4 text-center text-sm text-muted-foreground">
             Need an account?{" "}
             <a href="/sign-up" className="text-primary underline-offset-4 hover:underline">
