@@ -12,6 +12,7 @@ export function KanbanColumn({
   onOpenNotes,
   onOpenMessages,
   onOpenOffer,
+  onOpenAsk,
 }: {
   stage: string;
   label: string;
@@ -19,6 +20,7 @@ export function KanbanColumn({
   onOpenNotes: (applicationId: string) => void;
   onOpenMessages: (applicationId: string) => void;
   onOpenOffer: (applicationId: string) => void;
+  onOpenAsk: (applicationId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
 
@@ -46,6 +48,7 @@ export function KanbanColumn({
               onOpenNotes={onOpenNotes}
               onOpenMessages={onOpenMessages}
               onOpenOffer={onOpenOffer}
+              onOpenAsk={onOpenAsk}
             />
           ))}
           {applications.length === 0 && (

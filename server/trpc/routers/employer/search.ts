@@ -3,8 +3,9 @@ import type { Prisma } from "@prisma/client";
 import { router, employerProcedure } from "@/server/trpc/trpc";
 import { canViewFullProfile } from "@/server/services/employerAccess";
 import { computeMatchScore } from "@/server/services/matchScore";
-import { embedTexts } from "@/lib/ai";
-import { searchCandidateChunks, blendScore } from "@/server/services/embeddings";
+import { TRPCError } from "@trpc/server";
+import { embedTexts, answerAboutCandidate } from "@/lib/ai";
+import { searchCandidateChunks, blendScore, topChunksForCandidate } from "@/server/services/embeddings";
 
 const PAGE_SIZE = 20;
 
@@ -171,6 +172,30 @@ export const searchRouter = router({
         .sort((a, b) => b.blendedScore - a.blendedScore);
 
       return { mode: "full" as const, results: ranked };
+    }),
+
+  askAboutCandidate: employerProcedure
+    .input(z.object({ candidateId: z.string().uuid(), question: z.string().min(1).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const staff = await ctx.prisma.employerStaff.findUniqueOrThrow({
+        where: { userId: ctx.session.user.id },
+      });
+      const fullAccess = await canViewFullProfile(staff.id);
+      if (!fullAccess) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Full profile access required" });
+      }
+
+      const [queryEmbedding] = await embedTexts([input.question], "query");
+      const chunks = await topChunksForCandidate(input.candidateId, queryEmbedding, 6);
+      if (chunks.length === 0) {
+        return { answer: "This candidate doesn't have enough profile data to answer questions yet.", chunks: [] };
+      }
+
+      const answer = await answerAboutCandidate(
+        input.question,
+        chunks.map((c) => c.content),
+      );
+      return { answer, chunks };
     }),
 
   compGuidanceForIndustry: employerProcedure

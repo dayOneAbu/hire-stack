@@ -63,6 +63,22 @@ export const AI_EMBED_DIMS = 1024;
 
 // NIM embedqa models require input_type ("query" for search queries, "passage" for
 // indexed content) — same text embedded as either produces different vectors.
+const ASK_ABOUT_CANDIDATE_SYSTEM_PROMPT = `You answer employer questions about a job candidate
+using ONLY the provided profile excerpts. If the excerpts don't contain the answer, say so —
+never invent employment history, skills, or software experience.`;
+
+export async function answerAboutCandidate(question: string, chunks: string[]): Promise<string> {
+  const context = chunks.map((c, i) => `[${i + 1}] ${c}`).join("\n");
+  const completion = await aiClient.chat.completions.create({
+    model: AI_MODEL,
+    messages: [
+      { role: "system", content: ASK_ABOUT_CANDIDATE_SYSTEM_PROMPT },
+      { role: "user", content: `Profile excerpts:\n${context}\n\nQuestion: ${question}` },
+    ],
+  });
+  return completion.choices[0]?.message?.content ?? "";
+}
+
 export async function embedTexts(
   texts: string[],
   inputType: "query" | "passage",

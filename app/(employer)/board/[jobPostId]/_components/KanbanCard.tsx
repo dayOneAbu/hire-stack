@@ -3,7 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
-import { FileSignature, MessageSquarePlus, MessagesSquare, MoreVertical } from "lucide-react";
+import { FileSignature, MessageSquarePlus, MessagesSquare, MoreVertical, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import { toast } from "sonner";
 import {
@@ -17,7 +17,7 @@ export type BoardApplication = {
   id: string;
   currentStage: string;
   overallMatchScore: number | null;
-  candidate: { firstName: string; lastName: string };
+  candidate: { id: string; firstName: string; lastName: string };
   notes: { id: string; content: string; authorId: string }[];
 };
 
@@ -33,11 +33,13 @@ export function KanbanCard({
   onOpenNotes,
   onOpenMessages,
   onOpenOffer,
+  onOpenAsk,
 }: {
   app: BoardApplication;
   onOpenNotes: (applicationId: string) => void;
   onOpenMessages?: (applicationId: string) => void;
   onOpenOffer?: (applicationId: string) => void;
+  onOpenAsk?: (applicationId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: app.id,
@@ -113,6 +115,20 @@ export function KanbanCard({
           <MessageSquarePlus className="size-3.5" />
           {app.notes.length > 0 ? `${app.notes.length} note${app.notes.length === 1 ? "" : "s"}` : "Add note"}
         </button>
+        {onOpenAsk && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenAsk(app.id);
+            }}
+            className="flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Sparkles className="size-3.5" />
+            Ask AI
+          </button>
+        )}
         {onOpenMessages && (
           <button
             type="button"
