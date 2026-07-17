@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, employerProcedure } from "@/server/trpc/trpc";
 import { computeMatchScore } from "@/server/services/matchScore";
+import { computeFunnel } from "@/server/services/funnel";
 
 const kanbanStage = z.enum([
   "INBOX",
@@ -153,5 +154,28 @@ export const boardRouter = router({
       where: { jobPostId: input.jobPostId },
       include: { notes: true, candidate: true },
     });
+  }),
+
+  // Per-job funnel: count currently in each stage, plus avg days spent in each stage by
+  // applications that have since moved on (ApplicationHistory already records every
+  // transition, so this is one aggregate read — no new data collection).
+  funnel: employerProcedure.input(z.object({ jobPostId: z.string().uuid() })).query(async ({ ctx, input }) => {
+    const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
+    await assertJobPostInWorkspace(ctx.prisma, input.jobPostId, workspaceId);
+
+    const [counts, history] = await Promise.all([
+      ctx.prisma.jobApplication.groupBy({
+        by: ["currentStage"],
+        where: { jobPostId: input.jobPostId },
+        _count: { _all: true },
+      }),
+      ctx.prisma.applicationHistory.findMany({
+        where: { application: { jobPostId: input.jobPostId } },
+        orderBy: { createdAt: "asc" },
+        select: { applicationId: true, toStage: true, createdAt: true },
+      }),
+    ]);
+
+    return computeFunnel(kanbanStage.options, counts, history);
   }),
 });

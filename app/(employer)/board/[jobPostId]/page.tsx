@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { KanbanColumn } from "./_components/KanbanColumn";
+import { FunnelChart } from "./_components/FunnelChart";
 import { KanbanCard, type BoardApplication } from "./_components/KanbanCard";
 import { NotesDialog } from "./_components/NotesDialog";
 import { MessagesDialog } from "./_components/MessagesDialog";
@@ -121,6 +122,8 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
         </h1>
         <p className="text-sm text-muted-foreground">Drag candidates across stages as they progress.</p>
       </div>
+
+      <FunnelChart jobPostId={jobPostId} />
 
       {board.isLoading ? (
         <div className="flex flex-1 gap-4 overflow-x-auto p-6">
