@@ -26,7 +26,12 @@ export const profileRouter = router({
         where: { userId: ctx.session.user.id },
         data: input,
       });
-      if (input.bio !== undefined) {
+      if (
+        input.bio !== undefined ||
+        input.targetHourlyRateMin !== undefined ||
+        input.targetHourlyRateMax !== undefined ||
+        input.weeklyAvailability !== undefined
+      ) {
         await refreshCandidateChunks(candidate.id);
       }
       return candidate;
