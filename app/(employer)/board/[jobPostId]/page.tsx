@@ -20,6 +20,7 @@ import { KanbanColumn } from "./_components/KanbanColumn";
 import { KanbanCard, type BoardApplication } from "./_components/KanbanCard";
 import { NotesDialog } from "./_components/NotesDialog";
 import { MessagesDialog } from "./_components/MessagesDialog";
+import { OfferDialog } from "./_components/OfferDialog";
 
 const STAGES = [
   { value: "INBOX", label: "Inbox" },
@@ -41,6 +42,7 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
   const [activeId, setActiveId] = useState<string | null>(null);
   const [notesAppId, setNotesAppId] = useState<string | null>(null);
   const [messagesAppId, setMessagesAppId] = useState<string | null>(null);
+  const [offerAppId, setOfferAppId] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -73,6 +75,7 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
   const activeApp = applications.find((a) => a.id === activeId) ?? null;
   const notesApp = applications.find((a) => a.id === notesAppId) ?? null;
   const messagesApp = applications.find((a) => a.id === messagesAppId) ?? null;
+  const offerApp = applications.find((a) => a.id === offerAppId) ?? null;
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id));
@@ -133,6 +136,7 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
                 applications={byStage.get(stage.value) ?? []}
                 onOpenNotes={setNotesAppId}
                 onOpenMessages={setMessagesAppId}
+                onOpenOffer={setOfferAppId}
               />
             ))}
           </div>
@@ -145,6 +149,7 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
 
       <NotesDialog app={notesApp} jobPostId={jobPostId} onClose={() => setNotesAppId(null)} />
       <MessagesDialog app={messagesApp} onClose={() => setMessagesAppId(null)} />
+      <OfferDialog app={offerApp} onClose={() => setOfferAppId(null)} />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
-import { MessageSquarePlus, MessagesSquare, MoreVertical } from "lucide-react";
+import { FileSignature, MessageSquarePlus, MessagesSquare, MoreVertical } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import { toast } from "sonner";
 import {
@@ -32,10 +32,12 @@ export function KanbanCard({
   app,
   onOpenNotes,
   onOpenMessages,
+  onOpenOffer,
 }: {
   app: BoardApplication;
   onOpenNotes: (applicationId: string) => void;
   onOpenMessages?: (applicationId: string) => void;
+  onOpenOffer?: (applicationId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: app.id,
@@ -126,6 +128,20 @@ export function KanbanCard({
           </button>
         )}
       </div>
+      {app.currentStage === "HIRED" && onOpenOffer && (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenOffer(app.id);
+          }}
+          className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-primary/10 px-1.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+        >
+          <FileSignature className="size-3.5" />
+          Offer
+        </button>
+      )}
     </div>
   );
 }

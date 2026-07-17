@@ -32,3 +32,20 @@ export async function getResumeBuffer(rawResumeUrl: string): Promise<Buffer> {
   const bytes = await res.Body!.transformToByteArray();
   return Buffer.from(bytes);
 }
+
+// Same bucket/presigned-PUT pattern as resumes, distinct key prefix (FRS §19.1).
+export async function getOfferUploadUrl(applicationId: string, filename: string) {
+  const key = `offers/${applicationId}/${randomUUID()}-${filename}`;
+  const uploadUrl = await getSignedUrl(
+    r2,
+    new PutObjectCommand({ Bucket: RESUME_BUCKET, Key: key }),
+    { expiresIn: 300 },
+  );
+  return { uploadUrl, documentUrl: key };
+}
+
+export async function getOfferDownloadUrl(documentUrl: string) {
+  return getSignedUrl(r2, new GetObjectCommand({ Bucket: RESUME_BUCKET, Key: documentUrl }), {
+    expiresIn: 300,
+  });
+}

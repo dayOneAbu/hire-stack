@@ -8,6 +8,7 @@ export async function createTRPCContext(opts: { req: NextRequest }) {
   return {
     prisma,
     session,
+    ipAddress: opts.req.headers.get("x-forwarded-for") ?? opts.req.headers.get("x-real-ip") ?? null,
   };
 }
 

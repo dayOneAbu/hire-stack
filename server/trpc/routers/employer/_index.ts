@@ -5,6 +5,7 @@ import { boardRouter } from "@/server/trpc/routers/employer/board";
 import { industryRouter } from "@/server/trpc/routers/employer/industry";
 import { savedSearchRouter } from "@/server/trpc/routers/employer/savedSearch";
 import { workspaceRouter } from "@/server/trpc/routers/employer/workspace";
+import { offerRouter } from "@/server/trpc/routers/employer/offer";
 
 export const employerRouter = router({
   search: searchRouter,
@@ -13,4 +14,5 @@ export const employerRouter = router({
   industry: industryRouter,
   savedSearch: savedSearchRouter,
   workspace: workspaceRouter,
+  offer: offerRouter,
 });
