@@ -128,23 +128,6 @@ export default function SearchPage() {
         </div>
       )}
 
-      {results.isError && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
-          <p className="text-sm text-muted-foreground">Couldn&apos;t load search results.</p>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => results.refetch()}>
-            Retry
-          </Button>
-        </div>
-      )}
-
-      {results.data?.mode === "full" && results.data.total === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
-          <Search className="size-8 text-muted-foreground" />
-          <p className="mt-3 text-sm font-medium text-foreground">No candidates match</p>
-          <p className="mt-1 text-sm text-muted-foreground">Try a different industry or job post.</p>
-        </div>
-      )}
-
       {results.data?.mode === "preview" && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
@@ -174,7 +157,7 @@ export default function SearchPage() {
         </div>
       )}
 
-      {results.data?.mode === "full" && results.data.total > 0 && (
+      {results.data?.mode === "full" && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {results.data.total} candidates

@@ -8,7 +8,6 @@ import { SoftwareConfirm } from "./_components/SoftwareConfirm";
 import { ManualEntry } from "./_components/ManualEntry";
 import { OnboardingProgress } from "./_components/OnboardingProgress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { CheckCircle2, Clock } from "lucide-react";
 
 type Stage = "resume" | "wizard" | "software" | "done";
@@ -32,17 +31,6 @@ export default function OnboardingPage() {
   const derivedStage: Stage | null =
     parseStatus !== "PARSED" ? "resume" : nextStep.data ? (nextStep.data.totalPending + nextStep.data.totalFlagged > 0 ? "wizard" : "software") : null;
   const stage = stageOverride ?? derivedStage;
-
-  if (status.isError) {
-    return (
-      <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center space-y-3 p-6 pt-12 text-center">
-        <p className="text-sm text-muted-foreground">Couldn&apos;t load your onboarding status.</p>
-        <Button variant="outline" size="sm" onClick={() => status.refetch()}>
-          Retry
-        </Button>
-      </div>
-    );
-  }
 
   if (status.isLoading || stage === null) {
     return (

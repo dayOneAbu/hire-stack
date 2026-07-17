@@ -28,7 +28,6 @@ export default function JobPostDetailPage({ params }: { params: Promise<{ jobPos
   });
   const clone = trpc.employer.jobPost.cloneFrom.useMutation({
     onSuccess: () => toast.success("Cloned to a new draft"),
-    onError: (e) => toast.error(e.message),
   });
   const archive = trpc.employer.jobPost.archive.useMutation({
     onSuccess: () => {
@@ -48,16 +47,7 @@ export default function JobPostDetailPage({ params }: { params: Promise<{ jobPos
     );
   }
 
-  if (job.isError || !job.data) {
-    return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center justify-center space-y-3 p-6 py-20 text-center">
-        <p className="text-sm text-muted-foreground">Couldn&apos;t load this job post.</p>
-        <Button variant="outline" size="sm" onClick={() => job.refetch()}>
-          Retry
-        </Button>
-      </div>
-    );
-  }
+  if (!job.data) return null;
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 p-6 py-10">

@@ -31,7 +31,6 @@ export default function JobsPage() {
   });
   const clone = trpc.employer.jobPost.cloneFrom.useMutation({
     onSuccess: () => utils.employer.jobPost.list.invalidate(),
-    onError: (e) => toast.error(e.message),
   });
   const archive = trpc.employer.jobPost.archive.useMutation({
     onSuccess: () => {
@@ -58,15 +57,6 @@ export default function JobsPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <Skeleton className="h-40 w-full" />
           <Skeleton className="h-40 w-full" />
-        </div>
-      )}
-
-      {jobs.isError && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
-          <p className="text-sm text-muted-foreground">Couldn&apos;t load job posts.</p>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => jobs.refetch()}>
-            Retry
-          </Button>
         </div>
       )}
 
