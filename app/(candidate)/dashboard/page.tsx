@@ -126,7 +126,15 @@ function MatchedJobs() {
 }
 
 function MyApplications() {
+  const utils = trpc.useUtils();
   const applications = trpc.candidate.jobs.myApplications.useQuery();
+  const withdraw = trpc.candidate.jobs.withdraw.useMutation({
+    onSuccess: () => {
+      toast.success("Application withdrawn");
+      utils.candidate.jobs.myApplications.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   if (applications.isLoading) return <Skeleton className="h-24 w-full" />;
   if (!applications.data?.length) {
@@ -135,16 +143,38 @@ function MyApplications() {
 
   return (
     <div className="space-y-2">
-      {applications.data.map((app) => (
-        <Link
-          key={app.id}
-          href={`/applications/${app.id}`}
-          className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted"
-        >
-          <span className="text-sm font-medium">{app.jobPost.title}</span>
-          <Badge variant="secondary">{app.currentStage}</Badge>
-        </Link>
-      ))}
+      {applications.data.map((app) => {
+        const canWithdraw = app.currentStage === "INBOX" && app.source === "CANDIDATE_APPLIED";
+        return (
+          <div
+            key={app.id}
+            className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted"
+          >
+            <Link href={`/applications/${app.id}`} className="flex flex-1 items-center justify-between">
+              <span className="text-sm font-medium">{app.jobPost.title}</span>
+              <Badge variant="secondary" className="mr-2">
+                {app.currentStage}
+              </Badge>
+            </Link>
+            {canWithdraw ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={withdraw.isPending}
+                onClick={() => {
+                  if (window.confirm("Withdraw this application?")) {
+                    withdraw.mutate({ applicationId: app.id });
+                  }
+                }}
+              >
+                Withdraw
+              </Button>
+            ) : (
+              <span className="ml-2 shrink-0 text-xs text-muted-foreground">Contact the employer to withdraw</span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { router, candidateProcedure } from "@/server/trpc/trpc";
 import { computeMatchScore } from "@/server/services/matchScore";
+import { canWithdraw } from "@/server/services/applicationWithdraw";
 
 async function getCandidateId(prisma: typeof import("@/lib/prisma").prisma, userId: string) {
   const candidate = await prisma.candidate.findUniqueOrThrow({ where: { userId } });
@@ -60,6 +62,26 @@ export const jobsRouter = router({
       await ctx.prisma.savedJob.delete({
         where: { candidateId_jobPostId: { candidateId, jobPostId: input.jobPostId } },
       });
+      return { deleted: true as const };
+    }),
+
+  withdraw: candidateProcedure
+    .input(z.object({ applicationId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const candidateId = await getCandidateId(ctx.prisma, ctx.session.user.id);
+      const application = await ctx.prisma.jobApplication.findUniqueOrThrow({
+        where: { id: input.applicationId },
+      });
+      if (application.candidateId !== candidateId) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      if (!canWithdraw(application)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "The employer has already engaged with this application — contact them directly to withdraw.",
+        });
+      }
+      await ctx.prisma.jobApplication.delete({ where: { id: input.applicationId } });
       return { deleted: true as const };
     }),
 
