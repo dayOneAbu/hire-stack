@@ -6,12 +6,14 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   closestCorners,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { trpc } from "@/lib/trpc/client";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,7 +48,10 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
   const [offerAppId, setOfferAppId] = useState<string | null>(null);
   const [askAppId, setAskAppId] = useState<string | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const moveStage = trpc.employer.board.moveStage.useMutation({
     onMutate: async ({ applicationId, toStage }) => {
