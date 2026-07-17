@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, employerProcedure } from "@/server/trpc/trpc";
+import { refreshJobPostEmbedding } from "@/server/services/embeddings";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -105,6 +106,7 @@ export const jobPostRouter = router({
         where: { id: input.jobPostId, workspaceId },
         data: { status: "ACTIVE", activatedAt: now, expiresAt },
       });
+      await refreshJobPostEmbedding(jobPost.id);
       return { status: jobPost.status, expiresAt: jobPost.expiresAt! };
     }),
 

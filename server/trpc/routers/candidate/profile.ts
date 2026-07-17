@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { router, candidateProcedure } from "@/server/trpc/trpc";
+import { refreshCandidateChunks } from "@/server/services/embeddings";
 
 export const profileRouter = router({
   get: candidateProcedure.query(async ({ ctx }) => {
@@ -25,7 +26,9 @@ export const profileRouter = router({
         where: { userId: ctx.session.user.id },
         data: input,
       });
-      // ponytail: refreshCandidateChunks wiring lands with Workstream 3 (RAG foundation)
+      if (input.bio !== undefined) {
+        await refreshCandidateChunks(candidate.id);
+      }
       return candidate;
     }),
 });

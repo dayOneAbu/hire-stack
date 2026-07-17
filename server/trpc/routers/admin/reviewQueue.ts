@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "@/server/trpc/trpc";
 import { recomputeIsSearchable } from "@/server/services/publishGate";
+import { refreshAnomalyEmbedding } from "@/server/services/embeddings";
 
 export const reviewQueueRouter = router({
   list: adminProcedure.query(({ ctx }) =>
@@ -24,6 +25,7 @@ export const reviewQueueRouter = router({
         data: { status: input.status, resolvedAt: new Date() },
         include: { employmentPeriod: true },
       });
+      await refreshAnomalyEmbedding(anomaly.id);
       const isSearchable = await recomputeIsSearchable(anomaly.employmentPeriod.candidateId);
       return { anomaly, isSearchable };
     }),

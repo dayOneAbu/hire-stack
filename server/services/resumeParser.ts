@@ -4,6 +4,7 @@ import { extractText } from "@/server/services/textExtract";
 import { extractResumeData } from "@/lib/ai";
 import { runAnomalyRules } from "@/server/services/anomalyRules";
 import { matchOrSuggestSoftware } from "@/server/services/taxonomyMatch";
+import { refreshCandidateChunks } from "@/server/services/embeddings";
 
 const MIN_CONFIDENCE = 0.15;
 
@@ -82,6 +83,7 @@ export async function parseResume(candidateId: string, rawResumeUrl: string): Pr
       where: { id: candidateId },
       data: { resumeParseStatus: "PARSED" },
     });
+    await refreshCandidateChunks(candidateId);
   } catch (err) {
     console.error("Resume parse failed", candidateId, err instanceof Error ? err.stack : err);
     await prisma.candidate.update({

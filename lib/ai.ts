@@ -55,3 +55,24 @@ export async function extractResumeData(text: string): Promise<ExtractionResult>
   const raw = completion.choices[0]?.message?.content ?? "{}";
   return extractionResultSchema.parse(JSON.parse(raw));
 }
+
+export const AI_EMBED_MODEL = process.env.AI_EMBED_MODEL ?? "nvidia/llama-3.2-nv-embedqa-1b-v2";
+
+// NIM embedqa models require input_type ("query" for search queries, "passage" for
+// indexed content) — same text embedded as either produces different vectors.
+export async function embedTexts(
+  texts: string[],
+  inputType: "query" | "passage",
+): Promise<number[][]> {
+  if (texts.length === 0) return [];
+
+  const response = await aiClient.embeddings.create({
+    model: AI_EMBED_MODEL,
+    input: texts,
+    // @ts-expect-error -- NIM extends the OpenAI embeddings schema with input_type
+    input_type: inputType,
+    encoding_format: "float",
+  });
+
+  return response.data.map((d) => d.embedding);
+}
