@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 type JobPost = RouterOutputs["employer"]["jobPost"]["byId"];
 
@@ -62,7 +63,7 @@ function EditForm({ jobPostId, job }: { jobPostId: string; job: JobPost }) {
       utils.employer.jobPost.list.invalidate();
       router.push(`/jobs/${jobPostId}`);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (

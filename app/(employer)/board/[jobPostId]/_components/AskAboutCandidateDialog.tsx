@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc/client";
 import { toast } from "sonner";
 import type { BoardApplication } from "./KanbanCard";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 export function AskAboutCandidateDialog({
   app,
@@ -30,7 +31,7 @@ export function AskAboutCandidateDialog({
       setThread((t) => [...t, { question: variables.question, answer: result.answer, chunks: result.chunks }]);
       setQuestion("");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (

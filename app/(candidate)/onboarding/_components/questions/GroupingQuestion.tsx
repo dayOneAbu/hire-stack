@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { getSafeErrorMessage } from "@/lib/utils";
+import { AlertTriangle } from "lucide-react";
 
 const OPTIONS = [
   { value: "ONE_EMPLOYER", label: "One employer/job only" },
@@ -35,7 +37,7 @@ export function GroupingQuestion({
     onSuccess: (res) => {
       if (answer) onAnswered(res.isSearchable, answer);
     },
-    onError: (e) => toast.error(e.message || "Couldn't save your answer. Try again."),
+    onError: (e) => toast.error(getSafeErrorMessage(e, "Couldn't save your answer. Try again.")),
   });
 
   function submit() {
@@ -73,6 +75,14 @@ export function GroupingQuestion({
 
       {answer === "MULTIPLE_SEPARATE_CLIENTS" && (
         <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 space-y-4 border-t pt-4 motion-safe:duration-200">
+          <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <p>
+              Once you continue, this can&apos;t be undone with the &quot;← Back&quot; button — you&apos;ll need
+              to re-enter this employment period manually if you change your mind. Make sure the details below
+              are correct before continuing.
+            </p>
+          </div>
           {splits.map((split, i) => (
             <div key={i} className="space-y-2 rounded-lg border p-3">
               <Label>Company name</Label>

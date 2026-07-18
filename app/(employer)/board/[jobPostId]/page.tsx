@@ -25,6 +25,7 @@ import { NotesDialog } from "./_components/NotesDialog";
 import { MessagesDialog } from "./_components/MessagesDialog";
 import { OfferDialog } from "./_components/OfferDialog";
 import { AskAboutCandidateDialog } from "./_components/AskAboutCandidateDialog";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 const STAGES = [
   { value: "INBOX", label: "Inbox" },
@@ -65,7 +66,7 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
     },
     onError: (e, _vars, ctx) => {
       if (ctx?.previous) utils.employer.board.list.setData({ jobPostId }, ctx.previous);
-      toast.error(e.message);
+      toast.error(getSafeErrorMessage(e));
     },
     onSettled: () => utils.employer.board.list.invalidate({ jobPostId }),
   });

@@ -9,11 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
+import { getSafeErrorMessage } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function WorkspaceSettingsPage() {
   const { data: session } = authClient.useSession();
   const isOwner = session?.user && (session.user as { role?: string }).role === "EMPLOYER_OWNER";
   const utils = trpc.useUtils();
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; label: string } | null>(null);
 
   const workspace = trpc.employer.workspace.get.useQuery();
   const staff = trpc.employer.workspace.listStaff.useQuery(undefined, { enabled: isOwner });
@@ -28,15 +31,18 @@ export default function WorkspaceSettingsPage() {
       toast.success("Workspace renamed");
       utils.employer.workspace.get.invalidate();
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const approveStaff = trpc.employer.workspace.approveStaff.useMutation({
     onSuccess: () => utils.employer.workspace.listStaff.invalidate(),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const removeStaff = trpc.employer.workspace.removeStaff.useMutation({
-    onSuccess: () => utils.employer.workspace.listStaff.invalidate(),
-    onError: (e) => toast.error(e.message),
+    onSuccess: () => {
+      utils.employer.workspace.listStaff.invalidate();
+      setRemoveTarget(null);
+    },
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (
@@ -102,11 +108,7 @@ export default function WorkspaceSettingsPage() {
                       variant="ghost"
                       size="sm"
                       disabled={removeStaff.isPending || s.userId === session?.user.id}
-                      onClick={() => {
-                        if (window.confirm(`Remove ${s.user.name ?? s.user.email} from the workspace?`)) {
-                          removeStaff.mutate({ employerStaffId: s.id });
-                        }
-                      }}
+                      onClick={() => setRemoveTarget({ id: s.id, label: s.user.name ?? s.user.email })}
                     >
                       Remove
                     </Button>
@@ -119,6 +121,16 @@ export default function WorkspaceSettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={removeTarget !== null}
+        onOpenChange={(open) => !open && setRemoveTarget(null)}
+        title="Remove from workspace?"
+        description={`${removeTarget?.label ?? "This person"} will lose access to this workspace.`}
+        confirmLabel="Remove"
+        pending={removeStaff.isPending}
+        onConfirm={() => removeTarget && removeStaff.mutate({ employerStaffId: removeTarget.id })}
+      />
     </div>
   );
 }

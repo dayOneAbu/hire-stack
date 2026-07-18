@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 export default function NewJobPostPage() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function NewJobPostPage() {
       toast.success("Job post created");
       router.push("/jobs");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (

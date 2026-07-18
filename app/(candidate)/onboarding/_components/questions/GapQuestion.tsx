@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 export function GapQuestion({
   anomalyId,
@@ -16,7 +17,7 @@ export function GapQuestion({
   const [answer, setAnswer] = useState("");
   const mutation = trpc.candidate.wizard.answerGap.useMutation({
     onSuccess: (res) => onAnswered(res.isSearchable),
-    onError: (e) => toast.error(e.message || "Couldn't save your answer. Try again."),
+    onError: (e) => toast.error(getSafeErrorMessage(e, "Couldn't save your answer. Try again.")),
   });
 
   return (

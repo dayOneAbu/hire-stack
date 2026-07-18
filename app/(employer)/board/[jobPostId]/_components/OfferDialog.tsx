@@ -15,6 +15,8 @@ import { trpc } from "@/lib/trpc/client";
 import { toast } from "sonner";
 import { FileText, Upload } from "lucide-react";
 import type { BoardApplication } from "./KanbanCard";
+import { getSafeErrorMessage } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const STATUS_TONE: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -33,6 +35,7 @@ const PAYMENT_STATUS_TONE: Record<string, string> = {
 function PaymentSection({ applicationId }: { applicationId: string }) {
   const utils = trpc.useUtils();
   const [amount, setAmount] = useState("");
+  const [confirmRefund, setConfirmRefund] = useState(false);
   const payment = trpc.employer.payment.byApplication.useQuery({ applicationId });
 
   const fund = trpc.employer.payment.fund.useMutation({
@@ -40,21 +43,22 @@ function PaymentSection({ applicationId }: { applicationId: string }) {
       toast.success("Payment funded and held");
       utils.employer.payment.byApplication.invalidate({ applicationId });
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const release = trpc.employer.payment.release.useMutation({
     onSuccess: () => {
       toast.success("Payment released to candidate");
       utils.employer.payment.byApplication.invalidate({ applicationId });
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const refund = trpc.employer.payment.refund.useMutation({
     onSuccess: () => {
       toast.success("Payment refunded");
       utils.employer.payment.byApplication.invalidate({ applicationId });
+      setConfirmRefund(false);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   if (payment.isLoading) return null;
@@ -99,14 +103,22 @@ function PaymentSection({ applicationId }: { applicationId: string }) {
           <Button
             variant="outline"
             disabled={refund.isPending}
-            onClick={() => {
-              if (window.confirm("Refund this payment?")) refund.mutate({ paymentId: payment.data!.id });
-            }}
+            onClick={() => setConfirmRefund(true)}
           >
             Refund
           </Button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmRefund}
+        onOpenChange={setConfirmRefund}
+        title="Refund this payment?"
+        description={`Refund $${Number(payment.data?.amount ?? 0).toFixed(2)} back to the employer? This can't be undone.`}
+        confirmLabel="Refund"
+        pending={refund.isPending}
+        onConfirm={() => payment.data && refund.mutate({ paymentId: payment.data.id })}
+      />
     </div>
   );
 }
@@ -126,14 +138,14 @@ export function OfferDialog({ app, onClose }: { app: BoardApplication | null; on
       toast.success("Offer created");
       utils.employer.offer.byApplication.invalidate({ applicationId: app?.id ?? "" });
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const send = trpc.employer.offer.send.useMutation({
     onSuccess: () => {
       toast.success("Offer sent to candidate");
       utils.employer.offer.byApplication.invalidate({ applicationId: app?.id ?? "" });
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   async function handleUpload(file: File) {

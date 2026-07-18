@@ -9,24 +9,28 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, UserX } from "lucide-react";
 import { toast } from "sonner";
+import { getSafeErrorMessage } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function UsersPage() {
   const [query, setQuery] = useState("");
+  const [suspendTarget, setSuspendTarget] = useState<{ id: string; label: string } | null>(null);
   const utils = trpc.useUtils();
   const results = trpc.admin.users.search.useQuery({ query }, { enabled: query.length > 0 });
   const suspend = trpc.admin.users.suspend.useMutation({
     onSuccess: () => {
       toast.success("User suspended");
       utils.admin.users.search.invalidate();
+      setSuspendTarget(null);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const reinstate = trpc.admin.users.reinstate.useMutation({
     onSuccess: () => {
       toast.success("User reinstated");
       utils.admin.users.search.invalidate();
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (
@@ -104,11 +108,7 @@ export default function UsersPage() {
                   variant="destructive"
                   size="sm"
                   disabled={suspend.isPending}
-                  onClick={() => {
-                    if (window.confirm(`Suspend ${u.name ?? u.email}? They will be unable to sign in.`)) {
-                      suspend.mutate({ userId: u.id });
-                    }
-                  }}
+                  onClick={() => setSuspendTarget({ id: u.id, label: u.name ?? u.email })}
                 >
                   Suspend
                 </Button>
@@ -124,6 +124,16 @@ export default function UsersPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={suspendTarget !== null}
+        onOpenChange={(open) => !open && setSuspendTarget(null)}
+        title="Suspend user?"
+        description={`${suspendTarget?.label ?? "This user"} will be unable to sign in until reinstated.`}
+        confirmLabel="Suspend"
+        pending={suspend.isPending}
+        onConfirm={() => suspendTarget && suspend.mutate({ userId: suspendTarget.id })}
+      />
     </div>
   );
 }

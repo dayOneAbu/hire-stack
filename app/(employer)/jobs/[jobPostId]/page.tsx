@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { ArrowLeft, Archive, Copy, KanbanSquare, Pencil } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 const STATUS_TONE: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -24,11 +25,11 @@ export default function JobPostDetailPage({ params }: { params: Promise<{ jobPos
   const job = trpc.employer.jobPost.byId.useQuery({ id: jobPostId });
   const activate = trpc.employer.jobPost.activate.useMutation({
     onSuccess: () => utils.employer.jobPost.byId.invalidate({ id: jobPostId }),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const clone = trpc.employer.jobPost.cloneFrom.useMutation({
     onSuccess: () => toast.success("Cloned to a new draft"),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const archive = trpc.employer.jobPost.archive.useMutation({
     onSuccess: () => {
@@ -36,7 +37,7 @@ export default function JobPostDetailPage({ params }: { params: Promise<{ jobPos
       utils.employer.jobPost.list.invalidate();
       router.push("/jobs");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   if (job.isLoading) {

@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { cn } from "@/lib/utils";
+import { cn, getSafeErrorMessage } from "@/lib/utils";
 import { FileSignature, MessageSquarePlus, MessagesSquare, MoreVertical, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import { toast } from "sonner";
@@ -12,6 +13,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export type BoardApplication = {
   id: string;
@@ -45,9 +47,13 @@ export function KanbanCard({
     id: app.id,
   });
   const utils = trpc.useUtils();
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const removeCandidate = trpc.employer.board.removeCandidate.useMutation({
-    onSuccess: () => utils.employer.board.list.invalidate(),
-    onError: (e) => toast.error(e.message),
+    onSuccess: () => {
+      utils.employer.board.list.invalidate();
+      setConfirmRemove(false);
+    },
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   const initials = `${app.candidate.firstName[0] ?? ""}${app.candidate.lastName[0] ?? ""}`.toUpperCase();
@@ -90,17 +96,23 @@ export function KanbanCard({
           <DropdownMenuContent align="end">
             <DropdownMenuItem
               variant="destructive"
-              onClick={() => {
-                if (window.confirm(`Remove ${app.candidate.firstName} ${app.candidate.lastName} from this board? This can't be undone.`)) {
-                  removeCandidate.mutate({ applicationId: app.id });
-                }
-              }}
+              onClick={() => setConfirmRemove(true)}
             >
               Remove from board
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <ConfirmDialog
+        open={confirmRemove}
+        onOpenChange={setConfirmRemove}
+        title="Remove from board?"
+        description={`Remove ${app.candidate.firstName} ${app.candidate.lastName} from this board? This can't be undone.`}
+        confirmLabel="Remove"
+        pending={removeCandidate.isPending}
+        onConfirm={() => removeCandidate.mutate({ applicationId: app.id })}
+      />
 
       <div className="mt-3 flex items-center gap-1">
         <button

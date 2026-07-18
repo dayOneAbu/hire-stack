@@ -14,6 +14,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Archive, Briefcase, Copy, KanbanSquare, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { getSafeErrorMessage } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const STATUS_TONE: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -24,37 +27,41 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default function JobsPage() {
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<{ id: string; title: string } | null>(null);
   const jobs = trpc.employer.jobPost.list.useQuery();
   const utils = trpc.useUtils();
   const activate = trpc.employer.jobPost.activate.useMutation({
     onSuccess: () => utils.employer.jobPost.list.invalidate(),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const clone = trpc.employer.jobPost.cloneFrom.useMutation({
     onSuccess: () => utils.employer.jobPost.list.invalidate(),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const archive = trpc.employer.jobPost.archive.useMutation({
     onSuccess: () => {
       toast.success("Job post archived");
       utils.employer.jobPost.list.invalidate();
+      setArchiveTarget(null);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const pause = trpc.employer.jobPost.pause.useMutation({
     onSuccess: () => utils.employer.jobPost.list.invalidate(),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const resume = trpc.employer.jobPost.resume.useMutation({
     onSuccess: () => utils.employer.jobPost.list.invalidate(),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const deleteDraft = trpc.employer.jobPost.deleteDraft.useMutation({
     onSuccess: () => {
       toast.success("Draft deleted");
       utils.employer.jobPost.list.invalidate();
+      setDeleteTarget(null);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (
@@ -170,11 +177,7 @@ export default function JobsPage() {
                   {job.status === "DRAFT" ? (
                     <DropdownMenuItem
                       variant="destructive"
-                      onClick={() => {
-                        if (window.confirm("Delete this draft job post? This can't be undone.")) {
-                          deleteDraft.mutate({ jobPostId: job.id });
-                        }
-                      }}
+                      onClick={() => setDeleteTarget({ id: job.id, title: job.title })}
                     >
                       <Trash2 className="size-3.5" />
                       Delete draft
@@ -182,7 +185,7 @@ export default function JobsPage() {
                   ) : (
                     <DropdownMenuItem
                       variant="destructive"
-                      onClick={() => archive.mutate({ jobPostId: job.id })}
+                      onClick={() => setArchiveTarget({ id: job.id, title: job.title })}
                     >
                       <Archive className="size-3.5" />
                       Archive
@@ -194,6 +197,25 @@ export default function JobsPage() {
           </Card>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete this draft?"
+        description={`"${deleteTarget?.title}" will be permanently deleted. This can't be undone.`}
+        confirmLabel="Delete draft"
+        pending={deleteDraft.isPending}
+        onConfirm={() => deleteTarget && deleteDraft.mutate({ jobPostId: deleteTarget.id })}
+      />
+      <ConfirmDialog
+        open={archiveTarget !== null}
+        onOpenChange={(open) => !open && setArchiveTarget(null)}
+        title="Archive this job post?"
+        description={`"${archiveTarget?.title}" will move out of your active postings. Archived posts are hidden from candidates and can't be reactivated.`}
+        confirmLabel="Archive"
+        pending={archive.isPending}
+        onConfirm={() => archiveTarget && archive.mutate({ jobPostId: archiveTarget.id })}
+      />
     </div>
   );
 }

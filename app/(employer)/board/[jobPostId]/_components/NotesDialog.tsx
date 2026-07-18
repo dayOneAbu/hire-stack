@@ -15,6 +15,7 @@ import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { Pencil, Trash2, X, Check } from "lucide-react";
 import type { BoardApplication } from "./KanbanCard";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 export function NotesDialog({
   app,
@@ -38,7 +39,7 @@ export function NotesDialog({
       invalidate();
       setDraft("");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   const updateNote = trpc.employer.board.updateNote.useMutation({
@@ -46,12 +47,12 @@ export function NotesDialog({
       invalidate();
       setEditingId(null);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   const deleteNote = trpc.employer.board.deleteNote.useMutation({
     onSuccess: () => invalidate(),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (

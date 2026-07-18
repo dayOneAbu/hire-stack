@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Bookmark, ChevronLeft, ChevronRight, Lock, Search, Trash2, UserPlus } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 type FullCandidate = Extract<RouterOutputs["employer"]["search"]["candidates"], { mode: "full" }>["results"][number];
 type SemanticCandidate = Extract<RouterOutputs["employer"]["search"]["semantic"], { mode: "full" }>["results"][number];
@@ -24,7 +25,7 @@ type SemanticCandidate = Extract<RouterOutputs["employer"]["search"]["semantic"]
 function SemanticCandidateCard({ candidate, jobPostId }: { candidate: SemanticCandidate; jobPostId: string }) {
   const addCandidate = trpc.employer.board.addCandidate.useMutation({
     onSuccess: () => toast.success("Added to board"),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (
@@ -71,7 +72,7 @@ function SemanticCandidateCard({ candidate, jobPostId }: { candidate: SemanticCa
 function CandidateCard({ candidate, jobPostId }: { candidate: FullCandidate; jobPostId: string }) {
   const addCandidate = trpc.employer.board.addCandidate.useMutation({
     onSuccess: () => toast.success("Added to board"),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (
@@ -136,11 +137,11 @@ export default function SearchPage() {
       toast.success("Search saved");
       utils.employer.savedSearch.list.invalidate();
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const deleteSearch = trpc.employer.savedSearch.delete.useMutation({
     onSuccess: () => utils.employer.savedSearch.list.invalidate(),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   function recallSearch(filters: Record<string, unknown>) {

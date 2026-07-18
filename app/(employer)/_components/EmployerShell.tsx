@@ -5,13 +5,16 @@ import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Briefcase, CreditCard, LogOut, Search, ShieldCheck, Users } from "lucide-react";
+import { Briefcase, CreditCard, Gift, LifeBuoy, LogOut, Search, ShieldCheck, Users } from "lucide-react";
+
+const SUPPORT_EMAIL = "hello@hirestack.example";
 
 const NAV = [
   { href: "/jobs", label: "Job posts", icon: Briefcase },
   { href: "/search", label: "Search candidates", icon: Search },
   { href: "/settings/billing", label: "Billing", icon: CreditCard },
   { href: "/settings/workspace", label: "Workspace", icon: Users },
+  { href: "/referrals", label: "Referrals", icon: Gift },
 ];
 
 export function EmployerShell({ children }: { children: React.ReactNode }) {
@@ -19,12 +22,13 @@ export function EmployerShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const session = authClient.useSession();
   const user = session.data?.user;
-  const initials = (user?.name ?? "?")
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const initials =
+    user?.name
+      ?.split(" ")
+      .map((p) => p[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "?";
 
   return (
     <div className="flex min-h-dvh">
@@ -57,6 +61,13 @@ export function EmployerShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="border-t border-sidebar-border p-3">
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+          >
+            <LifeBuoy className="size-4 shrink-0" />
+            Help &amp; support
+          </a>
           <div className="flex items-center gap-3 rounded-lg px-3 py-2">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
               {initials}
@@ -79,25 +90,25 @@ export function EmployerShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-card px-4 py-3 md:hidden">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="size-5 text-primary" />
-            <span className="font-semibold">HireStack</span>
-          </div>
-          <nav className="flex items-center gap-1">
-            {NAV.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                aria-label={label}
-                className={cn(
-                  "flex size-9 items-center justify-center rounded-lg",
-                  pathname.startsWith(href) ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                )}
-              >
-                <Icon className="size-4" />
-              </Link>
-            ))}
+        <header className="flex items-center gap-2 border-b border-border bg-card px-3 py-2 md:hidden">
+          <ShieldCheck className="size-5 shrink-0 text-primary" />
+          <nav className="flex min-w-0 flex-1 items-center justify-end gap-0.5 overflow-x-auto">
+            {NAV.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || pathname.startsWith(href + "/");
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "flex shrink-0 flex-col items-center gap-0.5 rounded-lg px-1.5 py-1.5 text-[11px] font-medium",
+                    active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  <Icon className="size-4" />
+                  <span className="max-w-12 truncate">{label}</span>
+                </Link>
+              );
+            })}
           </nav>
         </header>
         <main className="flex-1 bg-background">{children}</main>

@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 const CORRECTION_LABEL: Record<string, string> = {
   INCOMPLETE_ENTRY: "Correct job title",
@@ -28,7 +29,7 @@ export function ConfirmDenyQuestion({
     onSuccess: (res) => onAnswered(res.isSearchable),
     onError: (e) => {
       setPendingAction(null);
-      toast.error(e.message || "Couldn't save your answer. Try again.");
+      toast.error(getSafeErrorMessage(e, "Couldn't save your answer. Try again."));
     },
   });
 

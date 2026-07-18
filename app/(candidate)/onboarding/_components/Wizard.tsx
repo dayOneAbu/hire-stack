@@ -10,6 +10,7 @@ import { GroupingQuestion } from "./questions/GroupingQuestion";
 import { GapQuestion } from "./questions/GapQuestion";
 import { WageQuestion } from "./questions/WageQuestion";
 import { ConfirmDenyQuestion } from "./questions/ConfirmDenyQuestion";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 // Answers to these rule types resolve a single still-existing anomaly row, so they can be
 // safely un-resolved. CONCURRENT_EMPLOYERS/FREELANCE_INDICATION (GroupingQuestion) are excluded
@@ -41,7 +42,7 @@ export function Wizard({
       setHistory((h) => h.slice(0, -1));
       void utils.candidate.wizard.getNextStep.invalidate();
     },
-    onError: (e) => toast.error(e.message || "Couldn't undo that. Try again."),
+    onError: (e) => toast.error(getSafeErrorMessage(e, "Couldn't undo that. Try again.")),
   });
 
   function afterAnswer(isSearchable: boolean) {

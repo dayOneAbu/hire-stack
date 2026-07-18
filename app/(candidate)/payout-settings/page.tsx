@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 export default function PayoutSettingsPage() {
   const status = trpc.candidate.payout.payoutStatus.useQuery();
@@ -13,7 +14,7 @@ export default function PayoutSettingsPage() {
     onSuccess: (data) => {
       window.location.href = data.url;
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (
@@ -42,9 +43,15 @@ export default function PayoutSettingsPage() {
         </CardHeader>
         <CardContent>{status.isLoading && <Skeleton className="h-4 w-48" />}</CardContent>
         <CardFooter>
-          <Button disabled={onboard.isPending} onClick={() => onboard.mutate()}>
-            {status.data?.stripeConnectAccountId ? "Continue onboarding" : "Enable payouts"}
-          </Button>
+          {status.data?.payoutsEnabled ? (
+            <Button variant="outline" disabled={onboard.isPending} onClick={() => onboard.mutate()}>
+              Update payout details
+            </Button>
+          ) : (
+            <Button disabled={onboard.isPending} onClick={() => onboard.mutate()}>
+              {status.data?.stripeConnectAccountId ? "Continue onboarding" : "Enable payouts"}
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>

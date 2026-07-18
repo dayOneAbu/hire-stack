@@ -11,8 +11,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, FileText, MessageSquare } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getSafeErrorMessage } from "@/lib/utils";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const OFFER_STATUS_TONE: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -25,20 +26,22 @@ function OfferCard({ applicationId }: { applicationId: string }) {
   const utils = trpc.useUtils();
   const offer = trpc.candidate.offer.byApplication.useQuery({ applicationId });
   const [signerName, setSignerName] = useState("");
+  const [confirmDecline, setConfirmDecline] = useState(false);
 
   const sign = trpc.candidate.offer.sign.useMutation({
     onSuccess: () => {
       toast.success("Offer signed");
       utils.candidate.offer.byApplication.invalidate({ applicationId });
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const decline = trpc.candidate.offer.decline.useMutation({
     onSuccess: () => {
       toast.success("Offer declined");
       utils.candidate.offer.byApplication.invalidate({ applicationId });
+      setConfirmDecline(false);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   if (offer.isLoading || !offer.data) return null;
@@ -73,9 +76,7 @@ function OfferCard({ applicationId }: { applicationId: string }) {
           <Button
             variant="outline"
             disabled={decline.isPending}
-            onClick={() => {
-              if (window.confirm("Decline this offer?")) decline.mutate({ offerId: offer.data!.id });
-            }}
+            onClick={() => setConfirmDecline(true)}
           >
             Decline
           </Button>
@@ -87,6 +88,16 @@ function OfferCard({ applicationId }: { applicationId: string }) {
           </Button>
         </CardFooter>
       )}
+
+      <ConfirmDialog
+        open={confirmDecline}
+        onOpenChange={setConfirmDecline}
+        title="Decline this offer?"
+        description="This can't be undone. The employer will be notified that you've declined."
+        confirmLabel="Decline offer"
+        pending={decline.isPending}
+        onConfirm={() => offer.data && decline.mutate({ offerId: offer.data.id })}
+      />
       {offer.data.status === "SIGNED" && offer.data.signerName && (
         <CardContent>
           <p className="text-sm text-muted-foreground">
@@ -106,14 +117,14 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
 
   const messages = trpc.messages.list.useQuery({ applicationId: id });
   const markRead = trpc.messages.markRead.useMutation({
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const send = trpc.messages.send.useMutation({
     onSuccess: () => {
       utils.messages.list.invalidate({ applicationId: id });
       setDraft("");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   useEffect(() => {

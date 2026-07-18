@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 const TIERS = [
   { tier: "STARTER" as const, name: "Starter", price: "$?/mo", slots: 1 },
@@ -18,13 +19,13 @@ export default function BillingPage() {
     onSuccess: (data) => {
       if (data.url) window.location.href = data.url;
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const portal = trpc.billing.createPortalSession.useMutation({
     onSuccess: (data) => {
       if (data.url) window.location.href = data.url;
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (

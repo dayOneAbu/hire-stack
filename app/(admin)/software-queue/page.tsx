@@ -8,22 +8,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { PackageSearch } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function SoftwareQueuePage() {
   const queue = trpc.admin.softwareQueue.list.useQuery();
   const utils = trpc.useUtils();
   const approve = trpc.admin.softwareQueue.approve.useMutation({
     onSuccess: () => utils.admin.softwareQueue.list.invalidate(),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const merge = trpc.admin.softwareQueue.merge.useMutation({
     onSuccess: () => {
       toast.success("Merged");
       utils.admin.softwareQueue.list.invalidate();
+      setMergeConfirm(null);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const [mergeTarget, setMergeTarget] = useState<Record<string, string>>({});
+  const [mergeConfirm, setMergeConfirm] = useState<{ id: string; intoId: string; name: string; intoName: string } | null>(null);
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 p-6 py-10">
@@ -90,7 +94,11 @@ export default function SoftwareQueuePage() {
                   size="sm"
                   variant="outline"
                   disabled={!mergeTarget[s.id] || merge.isPending}
-                  onClick={() => merge.mutate({ softwareId: s.id, intoId: mergeTarget[s.id] })}
+                  onClick={() => {
+                    const intoId = mergeTarget[s.id];
+                    const intoName = others.find((o) => o.id === intoId)?.name ?? "";
+                    setMergeConfirm({ id: s.id, intoId, name: s.name, intoName });
+                  }}
                 >
                   Merge
                 </Button>
@@ -99,6 +107,16 @@ export default function SoftwareQueuePage() {
           );
         })}
       </div>
+
+      <ConfirmDialog
+        open={mergeConfirm !== null}
+        onOpenChange={(open) => !open && setMergeConfirm(null)}
+        title="Merge software entries?"
+        description={`Merge "${mergeConfirm?.name}" into "${mergeConfirm?.intoName}"? This can't be undone.`}
+        confirmLabel="Merge"
+        pending={merge.isPending}
+        onConfirm={() => mergeConfirm && merge.mutate({ softwareId: mergeConfirm.id, intoId: mergeConfirm.intoId })}
+      />
     </div>
   );
 }

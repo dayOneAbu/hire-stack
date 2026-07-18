@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { ShieldAlert } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/utils";
 
 function SimilarAnomalies({ anomalyId }: { anomalyId: string }) {
   const similar = trpc.admin.reviewQueue.similarAnomalies.useQuery({ anomalyId });
@@ -35,7 +36,7 @@ export default function ReviewQueuePage() {
       toast.success("Resolved");
       utils.admin.reviewQueue.list.invalidate();
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (

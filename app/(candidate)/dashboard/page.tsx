@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Bookmark, BookmarkCheck, CheckCircle2, Clock, Inbox, Search, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { getSafeErrorMessage } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 function ProfileStatusCard() {
   const status = trpc.candidate.resume.status.useQuery();
@@ -82,15 +85,15 @@ function MatchedJobs() {
       toast.success("Applied");
       utils.candidate.jobs.myApplications.invalidate();
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const save = trpc.candidate.jobs.save.useMutation({
     onSuccess: () => utils.candidate.jobs.savedList.invalidate(),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const unsave = trpc.candidate.jobs.unsave.useMutation({
     onSuccess: () => utils.candidate.jobs.savedList.invalidate(),
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   if (matched.isLoading) {
@@ -132,7 +135,7 @@ function MatchedJobs() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between gap-2">
                 <span>{jobPost.title}</span>
-                <Badge variant="secondary">{overallScore}% match</Badge>
+                <Badge variant="secondary">{overallScore.overallMatchScore}% match</Badge>
               </CardTitle>
               <CardDescription className="line-clamp-2">{jobPost.description}</CardDescription>
             </CardHeader>
@@ -217,13 +220,15 @@ function RecommendedJobs() {
 
 function MyApplications() {
   const utils = trpc.useUtils();
+  const [withdrawTarget, setWithdrawTarget] = useState<{ id: string; title: string } | null>(null);
   const applications = trpc.candidate.jobs.myApplications.useQuery();
   const withdraw = trpc.candidate.jobs.withdraw.useMutation({
     onSuccess: () => {
       toast.success("Application withdrawn");
       utils.candidate.jobs.myApplications.invalidate();
+      setWithdrawTarget(null);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   if (applications.isLoading) {
@@ -276,11 +281,7 @@ function MyApplications() {
                 variant="ghost"
                 size="sm"
                 disabled={withdraw.isPending}
-                onClick={() => {
-                  if (window.confirm("Withdraw this application?")) {
-                    withdraw.mutate({ applicationId: app.id });
-                  }
-                }}
+                onClick={() => setWithdrawTarget({ id: app.id, title: app.jobPost.title })}
               >
                 Withdraw
               </Button>
@@ -290,6 +291,16 @@ function MyApplications() {
           </div>
         );
       })}
+
+      <ConfirmDialog
+        open={withdrawTarget !== null}
+        onOpenChange={(open) => !open && setWithdrawTarget(null)}
+        title="Withdraw this application?"
+        description={`Withdraw your application for "${withdrawTarget?.title}"? This can't be undone.`}
+        confirmLabel="Withdraw"
+        pending={withdraw.isPending}
+        onConfirm={() => withdrawTarget && withdraw.mutate({ applicationId: withdrawTarget.id })}
+      />
     </div>
   );
 }
