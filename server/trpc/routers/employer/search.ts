@@ -6,6 +6,7 @@ import { computeMatchScore } from "@/server/services/matchScore";
 import { TRPCError } from "@trpc/server";
 import { embedTexts, answerAboutCandidate } from "@/lib/ai";
 import { searchCandidateChunks, blendScore, topChunksForCandidate } from "@/server/services/embeddings";
+import { rankByRelevance } from "@/server/services/aiRanking";
 
 const PAGE_SIZE = 20;
 
@@ -117,7 +118,11 @@ export const searchRouter = router({
       })),
     );
 
-    return { mode: "full" as const, results, total };
+    const ranked = input.jobPostId
+      ? rankByRelevance(results.map((r) => ({ ...r, overallScore: r.matchScore! })))
+      : results;
+
+    return { mode: "full" as const, results: ranked, total };
   }),
 
   semantic: employerProcedure

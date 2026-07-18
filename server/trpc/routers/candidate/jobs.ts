@@ -4,6 +4,7 @@ import { router, candidateProcedure } from "@/server/trpc/trpc";
 import { computeMatchScore } from "@/server/services/matchScore";
 import { canWithdraw } from "@/server/services/applicationWithdraw";
 import { meanCandidateEmbedding, searchJobPosts } from "@/server/services/embeddings";
+import { rankByRelevance } from "@/server/services/aiRanking";
 
 async function getCandidateId(prisma: typeof import("@/lib/prisma").prisma, userId: string) {
   const candidate = await prisma.candidate.findUniqueOrThrow({ where: { userId } });
@@ -17,10 +18,10 @@ export const jobsRouter = router({
     const scored = await Promise.all(
       jobPosts.map(async (jobPost) => ({
         jobPost,
-        overallScore: (await computeMatchScore(candidateId, jobPost.id)).overallMatchScore,
+        overallScore: await computeMatchScore(candidateId, jobPost.id),
       })),
     );
-    return scored.sort((a, b) => b.overallScore - a.overallScore);
+    return rankByRelevance(scored);
   }),
 
   // Semantic "recommended for you": mean of the candidate's own chunk embeddings vs
