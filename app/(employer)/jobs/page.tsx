@@ -119,6 +119,13 @@ export default function JobsPage() {
             <Plus className="size-4" />
             New job post
           </Button>
+          <p className="mt-6 text-xs text-muted-foreground">
+            Drafts are free —{" "}
+            <Link href="/settings/billing" className="font-medium text-primary hover:underline">
+              subscribe to activate
+            </Link>{" "}
+            your first posting.
+          </p>
         </div>
       )}
 

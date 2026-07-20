@@ -417,7 +417,7 @@ export default function SearchPage() {
       {activeQuery && semanticResults.data?.mode === "preview" && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
           <Lock className="size-8 text-muted-foreground" />
-          <p className="mt-3 text-sm font-medium text-foreground">Get approved and subscribed to use semantic search</p>
+          <p className="mt-3 text-sm font-medium text-foreground">Subscribe to use semantic search</p>
         </div>
       )}
 
@@ -477,8 +477,8 @@ export default function SearchPage() {
       {!activeQuery && results.data?.mode === "preview" && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            {results.data.count} candidate{results.data.count === 1 ? "" : "s"} match — get approved and subscribed to
-            see full profiles.
+            {results.data.count} candidate{results.data.count === 1 ? "" : "s"} match — subscribe to see full
+            profiles.
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {results.data.sampleCards.map((card, i) => (

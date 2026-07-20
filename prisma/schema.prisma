@@ -145,6 +145,10 @@ model User {
   name                String?
   image               String?
   role                SystemRole @default(CANDIDATE)
+  // Signup-only fields: read by databaseHooks.user.create.after to assign role/workspace,
+  // never read again afterward (role is the source of truth post-signup).
+  signupIntent        String?
+  companyName         String?
   deletedAt           DateTime?
   lastLoginAt         DateTime?
   failedLoginAttempts Int        @default(0)

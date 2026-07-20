@@ -10,10 +10,26 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { ShieldCheck } from "lucide-react";
 
+type SignupIntent = "CANDIDATE" | "EMPLOYER";
+
+const COPY: Record<SignupIntent, { title: string; description: string }> = {
+  CANDIDATE: {
+    title: "Create your candidate account",
+    description: "Upload your resume and get verified for VA roles.",
+  },
+  EMPLOYER: {
+    title: "Create your employer account",
+    description: "Post a job and start reviewing verified candidates.",
+  },
+};
+
 export default function SignUpPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const intentParam = searchParams.get("as");
+  const [intent, setIntent] = useState<SignupIntent>(intentParam === "employer" ? "EMPLOYER" : "CANDIDATE");
   const [name, setName] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,10 +40,20 @@ export default function SignUpPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error: signUpError } = await authClient.signUp.email({ email, password, name });
+    const { error: signUpError } = await authClient.signUp.email({
+      email,
+      password,
+      name,
+      signupIntent: intent,
+      companyName: intent === "EMPLOYER" ? companyName : undefined,
+    });
     setLoading(false);
     if (signUpError) {
       setError(signUpError.message ?? "Sign up failed.");
+      return;
+    }
+    if (intent === "EMPLOYER") {
+      router.push("/jobs");
       return;
     }
     const referrerId = searchParams.get("ref");
@@ -42,15 +68,39 @@ export default function SignUpPage() {
       <Card className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300">
         <CardHeader>
           <ShieldCheck className="mb-1 size-6 text-primary" />
-          <CardTitle>Create your candidate account</CardTitle>
-          <CardDescription>Upload your resume and get verified for VA roles.</CardDescription>
+          <CardTitle>{COPY[intent].title}</CardTitle>
+          <CardDescription>{COPY[intent].description}</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={intent === "CANDIDATE" ? "default" : "ghost"}
+              onClick={() => setIntent("CANDIDATE")}
+            >
+              I&apos;m looking for work
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={intent === "EMPLOYER" ? "default" : "ghost"}
+              onClick={() => setIntent("EMPLOYER")}
+            >
+              I&apos;m hiring
+            </Button>
+          </div>
           <form className="space-y-3" onSubmit={handleSubmit}>
             <div className="space-y-1">
               <Label>Full name</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} required />
             </div>
+            {intent === "EMPLOYER" && (
+              <div className="space-y-1">
+                <Label>Company name</Label>
+                <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} required />
+              </div>
+            )}
             <div className="space-y-1">
               <Label>Email</Label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />

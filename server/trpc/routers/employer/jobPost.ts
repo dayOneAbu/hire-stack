@@ -55,7 +55,7 @@ async function assertJobSlotAvailable(
     await prisma.auditTrail.create({
       data: { userId, action: "JOB_SLOT_EXCEEDED", payload: { jobPostId } },
     });
-    throw new TRPCError({ code: "FORBIDDEN", message: "Job slot limit reached" });
+    throw new TRPCError({ code: "FORBIDDEN", message: "Job slot limit reached — subscribe to unlock more slots" });
   }
 }
 

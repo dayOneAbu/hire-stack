@@ -51,7 +51,7 @@ const tiers = [
       "Messaging & offers",
     ],
     cta: "Get started",
-    href: "/sign-up",
+    href: "/sign-up?as=employer",
     highlighted: false,
   },
   {
@@ -66,7 +66,7 @@ const tiers = [
       "Priority admin review queue",
     ],
     cta: "Get started",
-    href: "/sign-up",
+    href: "/sign-up?as=employer",
     highlighted: true,
   },
   {
@@ -102,7 +102,7 @@ export default function LandingPage() {
             <Link href="/sign-in" className="text-sm text-muted-foreground hover:text-foreground">
               Sign in
             </Link>
-            <Link href="/sign-up" className={cn(buttonVariants({ size: "sm" }))}>
+            <Link href="/sign-up?as=employer" className={cn(buttonVariants({ size: "sm" }))}>
               Get started
             </Link>
           </div>
@@ -130,13 +130,14 @@ export default function LandingPage() {
             not keyword-stuffed guesswork.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "group")}>
-              Start hiring
+            <Link href="/sign-up?as=employer" className={cn(buttonVariants({ size: "lg" }), "group")}>
+              Hire a VA
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
-            <a href="#how-it-works" className={cn(buttonVariants({ size: "lg", variant: "outline" }))}>
-              See how it works
-            </a>
+            <Link href="/sign-up" className={cn(buttonVariants({ size: "lg", variant: "outline" }), "group")}>
+              Find VA work
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </div>
         </div>
       </section>
@@ -239,7 +240,7 @@ export default function LandingPage() {
             has already been verified.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "group")}>
+            <Link href="/sign-up?as=employer" className={cn(buttonVariants({ size: "lg" }), "group")}>
               Get started free
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
