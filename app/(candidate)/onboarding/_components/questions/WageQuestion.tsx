@@ -11,11 +11,9 @@ import { getSafeErrorMessage } from "@/lib/utils";
 const MAX_HOURLY_RATE = 500;
 
 export function WageQuestion({
-  periodId,
   anomalyId,
   onAnswered,
 }: {
-  periodId: string;
   anomalyId: string;
   onAnswered: (isSearchable: boolean) => void;
 }) {
@@ -45,7 +43,7 @@ export function WageQuestion({
         disabled={!valid}
         loading={mutation.isPending}
         loadingText="Saving…"
-        onClick={() => mutation.mutate({ periodId, anomalyId, hourlyRate: parsed })}
+        onClick={() => mutation.mutate({ anomalyId, hourlyRate: parsed })}
       >
         Continue
       </Button>

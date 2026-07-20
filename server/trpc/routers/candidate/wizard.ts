@@ -141,13 +141,13 @@ export const wizardRouter = router({
     }),
 
   submitWage: candidateProcedure
-    .input(z.object({ periodId: z.string().uuid(), anomalyId: z.string().uuid(), hourlyRate: z.number().positive() }))
+    .input(z.object({ anomalyId: z.string().uuid(), hourlyRate: z.number().positive() }))
     .mutation(async ({ ctx, input }) => {
       const candidateId = await getCandidateId(ctx.prisma, ctx.session.user.id);
-      await getAnomalyOrThrow(ctx.prisma, input.anomalyId, candidateId);
+      const anomaly = await getAnomalyOrThrow(ctx.prisma, input.anomalyId, candidateId);
 
       await ctx.prisma.employmentPeriod.update({
-        where: { id: input.periodId },
+        where: { id: anomaly.employmentPeriodId },
         data: { documentedHourlyRate: input.hourlyRate },
       });
       await ctx.prisma.employmentAnomaly.update({

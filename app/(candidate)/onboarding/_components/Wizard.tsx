@@ -121,7 +121,6 @@ export function Wizard({
         )}
         {anomaly.ruleType === "MISSING_WAGE_RANGE" && (
           <WageQuestion
-            periodId={period.id}
             anomalyId={anomaly.id}
             onAnswered={(isSearchable) => {
               recordAnswer(anomaly.ruleType, true);
