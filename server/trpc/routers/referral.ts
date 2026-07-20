@@ -1,10 +1,20 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "@/server/trpc/trpc";
 
 export const referralRouter = router({
   create: protectedProcedure
     .input(z.object({ refereeEmail: z.string().email() }))
     .mutation(async ({ ctx, input }) => {
+      if (input.refereeEmail.toLowerCase() === ctx.session.user.email.toLowerCase()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You can't refer yourself." });
+      }
+      const existing = await ctx.prisma.referral.findFirst({
+        where: { referrerId: ctx.session.user.id, refereeEmail: input.refereeEmail },
+      });
+      if (existing) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You've already referred this email." });
+      }
       return ctx.prisma.referral.create({
         data: { referrerId: ctx.session.user.id, refereeEmail: input.refereeEmail },
       });

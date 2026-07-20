@@ -100,8 +100,8 @@ export default function OnboardingPage() {
               <h1 className="text-xl font-medium">Waiting on admin review</h1>
               <p className="mx-auto max-w-sm text-sm text-muted-foreground">
                 One or more entries need a closer look from our team before your profile can go
-                live. There&apos;s nothing more to do on your end &mdash; we&apos;ll email you the
-                moment it&apos;s resolved.
+                live. There&apos;s nothing more to do on your end &mdash; check back on your
+                dashboard once it&apos;s resolved.
               </p>
             </div>
           ) : (

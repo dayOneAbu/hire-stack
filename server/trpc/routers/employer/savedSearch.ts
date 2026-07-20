@@ -40,17 +40,4 @@ export const savedSearchRouter = router({
       await ctx.prisma.savedSearch.delete({ where: { id: input.savedSearchId } });
       return { deleted: true as const };
     }),
-
-  // Re-executing the search is the client's job — this hands back the stored filters so the
-  // client can call search.candidates with them directly (no query logic duplicated here).
-  run: employerProcedure
-    .input(z.object({ savedSearchId: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
-      const search = await ctx.prisma.savedSearch.findUniqueOrThrow({ where: { id: input.savedSearchId } });
-      if (search.workspaceId !== workspaceId) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
-      return search.filters as Record<string, unknown>;
-    }),
 });

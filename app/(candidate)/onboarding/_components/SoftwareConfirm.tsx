@@ -21,6 +21,10 @@ export function SoftwareConfirm({ onDone }: { onDone: () => void }) {
       toast.error(e.message || "Couldn't update that. Try again.");
     },
   });
+  const completeOnboarding = trpc.candidate.software.completeOnboarding.useMutation({
+    onSuccess: onDone,
+    onError: (e) => toast.error(e.message || "Couldn't finish onboarding. Try again."),
+  });
 
   if (list.isLoading) return <Skeleton className="h-40 w-full" />;
 
@@ -45,7 +49,13 @@ export function SoftwareConfirm({ onDone }: { onDone: () => void }) {
           <CardDescription>Nothing to confirm here.</CardDescription>
         </CardHeader>
         <CardFooter>
-          <Button onClick={onDone}>Continue</Button>
+          <Button
+            onClick={() => completeOnboarding.mutate()}
+            loading={completeOnboarding.isPending}
+            loadingText="Finishing…"
+          >
+            Continue
+          </Button>
         </CardFooter>
       </Card>
     );

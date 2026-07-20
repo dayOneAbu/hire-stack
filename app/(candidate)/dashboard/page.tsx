@@ -69,7 +69,7 @@ function ProfileStatusCard() {
         <div>
           <p className="font-medium">Waiting on admin review</p>
           <p className="text-sm text-muted-foreground">
-            We&apos;ll email you once your profile is cleared to go live.
+            Check back here once your profile is cleared to go live.
           </p>
         </div>
       </CardContent>
