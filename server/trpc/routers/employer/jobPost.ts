@@ -45,6 +45,11 @@ async function assertJobSlotAvailable(
   jobPostId: string,
 ) {
   const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId } });
+  // FRS §9: past_due blocks new activations (already-active jobs stay visible); only
+  // subscriptionStatus === ACTIVE may activate/resume a job.
+  if (workspace.subscriptionStatus !== "ACTIVE") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Subscribe to activate jobs" });
+  }
   const activeCount = await prisma.jobPost.count({ where: { workspaceId, status: "ACTIVE" } });
   if (activeCount >= workspace.jobSlotLimit) {
     await prisma.auditTrail.create({
@@ -103,7 +108,7 @@ export const jobPostRouter = router({
       const now = new Date();
       const expiresAt = new Date(now.getTime() + THIRTY_DAYS_MS);
       const jobPost = await ctx.prisma.jobPost.update({
-        where: { id: input.jobPostId, workspaceId },
+        where: { id: input.jobPostId, workspaceId, status: "DRAFT" },
         data: { status: "ACTIVE", activatedAt: now, expiresAt },
       });
       await refreshJobPostEmbedding(jobPost.id);

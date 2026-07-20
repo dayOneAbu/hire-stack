@@ -11,10 +11,15 @@ async function getCandidateId(prisma: typeof import("@/lib/prisma").prisma, user
   return candidate.id;
 }
 
+// FRS §9: only `canceled` pulls active jobs from candidate-facing search/matching.
+const notCanceledWorkspace = { workspace: { subscriptionStatus: { not: "CANCELED" as const } } };
+
 export const jobsRouter = router({
   matched: candidateProcedure.query(async ({ ctx }) => {
     const candidateId = await getCandidateId(ctx.prisma, ctx.session.user.id);
-    const jobPosts = await ctx.prisma.jobPost.findMany({ where: { status: "ACTIVE" } });
+    const jobPosts = await ctx.prisma.jobPost.findMany({
+      where: { status: "ACTIVE", ...notCanceledWorkspace },
+    });
     const scored = await Promise.all(
       jobPosts.map(async (jobPost) => ({
         jobPost,
@@ -33,7 +38,7 @@ export const jobsRouter = router({
 
     const matches = await searchJobPosts(meanEmbedding, 10);
     const jobPosts = await ctx.prisma.jobPost.findMany({
-      where: { id: { in: matches.map((m) => m.jobPostId) } },
+      where: { id: { in: matches.map((m) => m.jobPostId) }, status: "ACTIVE", ...notCanceledWorkspace },
     });
     const byId = new Map(jobPosts.map((j) => [j.id, j]));
 
@@ -53,6 +58,12 @@ export const jobsRouter = router({
         where: { jobPostId_candidateId: { jobPostId: input.jobPostId, candidateId } },
       });
       if (existing) return existing;
+
+      const jobPost = await ctx.prisma.jobPost.findUniqueOrThrow({ where: { id: input.jobPostId } });
+      if (jobPost.status !== "ACTIVE") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This job is no longer accepting applications" });
+      }
+
       return ctx.prisma.jobApplication.create({
         data: { jobPostId: input.jobPostId, candidateId, source: "CANDIDATE_APPLIED", currentStage: "INBOX" },
       });
