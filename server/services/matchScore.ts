@@ -62,7 +62,8 @@ export function scoreMatch(input: MatchScoreInput): MatchScoreBreakdown {
     const overlaps = cMin <= jMax && jMin <= cMax;
     if (!overlaps) {
       const gap = cMin > jMax ? cMin - jMax : jMin - cMax;
-      compScore = Math.max(0, 1 - gap / (gap * 2));
+      const jobRangeWidth = Math.max(1, jMax - jMin);
+      compScore = Math.max(0, 1 - gap / (2 * jobRangeWidth));
     }
   }
 

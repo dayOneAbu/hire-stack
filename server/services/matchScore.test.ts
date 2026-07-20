@@ -78,8 +78,8 @@ describe("scoreMatch", () => {
     expect(result.softwareScore).toBe(0);
     expect(result.experienceScore).toBe(0);
     expect(result.availabilityScore).toBe(0);
-    expect(result.compScore).toBe(50); // gap=45, falls to 50% at 2x gap
-    expect(result.overallMatchScore).toBe(10); // only the 0.20 comp weight contributes
+    expect(result.compScore).toBe(0); // gap=45, jobRangeWidth=10, past 2x width falloff
+    expect(result.overallMatchScore).toBe(0);
   });
 
   it("partial software match: proficiency below required scores proportionally", () => {
@@ -101,10 +101,27 @@ describe("scoreMatch", () => {
     expect(result.compScore).toBe(100);
   });
 
-  it("comp ranges disjoint: falls off proportionally to the gap", () => {
-    // candidate wants 30-40, job offers 10-15 → gap = 30-15 = 15, falloff at 2x gap → score 0.5
-    const result = scoreMatch({ ...baseInput, targetHourlyRateMin: 30, targetHourlyRateMax: 40, jobTargetRateMin: 10, jobTargetRateMax: 15 });
+  it("comp ranges disjoint: falls off proportionally to the gap relative to job range width", () => {
+    // job offers 10-15 (width=5), candidate wants 20-25 → gap = 20-15 = 5 = width, falloff at 2x width → score 0.5
+    const result = scoreMatch({ ...baseInput, targetHourlyRateMin: 20, targetHourlyRateMax: 25, jobTargetRateMin: 10, jobTargetRateMax: 15 });
     expect(result.compScore).toBe(50);
+  });
+
+  it("comp score strictly decreases as the gap grows, and hits 0", () => {
+    const scoreAt = (candidateMin: number) =>
+      scoreMatch({
+        ...baseInput,
+        targetHourlyRateMin: candidateMin,
+        targetHourlyRateMax: candidateMin + 5,
+        jobTargetRateMin: 10,
+        jobTargetRateMax: 15,
+      }).compScore;
+
+    const scores = [16, 18, 20, 25].map(scoreAt);
+    for (let i = 1; i < scores.length; i++) {
+      expect(scores[i]).toBeLessThan(scores[i - 1]);
+    }
+    expect(scoreAt(30)).toBe(0);
   });
 
   it("missing comp data on either side defaults to full comp score", () => {
