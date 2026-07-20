@@ -1,37 +1,15 @@
 # HireStack
 
-A hiring marketplace that connects overseas virtual assistants with real estate teams —
-built as a real product, not a portfolio toy.
-
-## What it actually does
-
-- **Upload a résumé, get a verified profile.** AI reads the résumé and pulls out work
-  history and skills. Anything unclear gets flagged and double-checked by a human before
-  the profile goes live — no fake "AI approved you" moment, no black box.
-- **Search that understands what you mean.** Type "someone who's managed a team of
-  leasing agents" and get real matches, not just keyword hits. Same tech also powers
-  candidate recommendations, a chat you can ask questions about a candidate, and
-  smarter admin reviews — all backed by real answers pulled from real data, with sources
-  shown, not guessed.
-- **Real payments, held safely.** Employers fund a job, money sits in escrow, and it
-  only releases once both sides sign off. This isn't a "pay now" button, it's an actual
-  marketplace payment flow.
-- **A hiring pipeline that works like one.** Drag-and-drop candidate board, match
-  scoring per job (not just a vague profile score), pipeline stats, and an audit trail
-  admins can actually read.
-- **Live updates, not refresh-and-pray.** Messages and pipeline changes show up
-  instantly.
-
-## Try it
-
-Demo login buttons (candidate / employer / admin) are right on the sign-in page —
-pre-loaded with a real profile, real jobs, applications at every pipeline stage, and a
-payment sitting in escrow, so there's something to click on immediately.
+Verified, structured hiring platform for overseas VA recruiting in real estate. See `docs/` for
+the full product spec — `PRD.md` (problem, product decisions, tech stack rationale),
+`FUNCTIONAL_REQUIREMENTS.md` (mechanics), `NON_FUNCTIONAL_REQUIREMENTS.md`, and `schema.prisma`
+(design reference — the working schema lives in `prisma/schema.prisma`).
 
 ## Stack
 
-Next.js · tRPC · PostgreSQL (Neon) + pgvector + Prisma · BetterAuth · NVIDIA NIM (AI) ·
-Stripe + Stripe Connect · Cloudflare R2 · shadcn/ui.
+Next.js (App Router) · tRPC · PostgreSQL + Prisma · BetterAuth · OpenAI-compatible AI (NVIDIA NIM
+free tier) · Stripe · Cloudflare R2. Full rationale in `docs/PRD.md` §8 — every service below runs
+on a free tier through MVP/build phase.
 
 ## Local setup
 
@@ -46,15 +24,15 @@ Stripe + Stripe Connect · Cloudflare R2 · shadcn/ui.
 3. **Auth — [BetterAuth](https://better-auth.com)**
    Generate a secret: `openssl rand -base64 32` → `BETTER_AUTH_SECRET` in `.env`.
 
-4. **AI extraction + embeddings — [NVIDIA NIM](https://build.nvidia.com) (free tier)**
+4. **AI extraction — [NVIDIA NIM](https://build.nvidia.com) (free tier)**
    Sign up, grab an API key from any model page (e.g. DeepSeek-V3 or GLM) → `AI_API_KEY`.
+   No code change needed to switch models/providers later — see `lib/ai.ts`.
 
 5. **File storage — [Cloudflare R2](https://developers.cloudflare.com/r2/) (free tier)**
    Create a bucket, an API token with R2 read/write, fill in `R2_*` vars.
 
 6. **Billing — [Stripe](https://dashboard.stripe.com) (test mode)**
    `STRIPE_SECRET_KEY` from the dashboard; `STRIPE_WEBHOOK_SECRET` from `stripe listen` locally.
-   Connect (marketplace pay-through) needs its own webhook secret — see `.env.example`.
 
 7. **Copy env and fill in the values above**
    ```bash
@@ -66,19 +44,34 @@ Stripe + Stripe Connect · Cloudflare R2 · shadcn/ui.
    pnpm db:migrate
    ```
 
-9. **Seed demo data (optional, recommended)**
+9. **Run**
    ```bash
-   pnpm db:seed        # base taxonomy (industries/software/skills)
-   pnpm tsx prisma/seed-demo.ts   # three demo personas + full pipeline data
+   pnpm dev
    ```
-
-10. **Run**
-
-    ```bash
-    pnpm dev
-    ```
 
 ## Deployment
 
-Hosted on [Render](https://render.com) (free tier), with a free
-[UptimeRobot](https://uptimerobot.com) check keeping it warm.
+Hosted on [Render](https://render.com) (free tier) — not Vercel, whose Hobby tier prohibits
+commercial/revenue-generating use. Render's free tier spins down after 15 minutes idle; a free
+[UptimeRobot](https://uptimerobot.com) monitor pings `/api/health` every 5 minutes to keep the
+instance warm. See `docs/PRD.md` §8 for the full trade-off writeup and the paid-tier fallback for
+high-stakes live demos.
+
+## Project structure
+
+```
+app/
+  (marketing)/     public site
+  (candidate)/     onboarding wizard, dashboard
+  (employer)/      search, job posts, Kanban board
+  (admin)/         software approval queue, employment review queue, user lookup
+  api/
+    auth/[...all]  BetterAuth handler
+    trpc/[trpc]    tRPC handler
+    webhooks/stripe
+    health         UptimeRobot ping target
+lib/               service clients (prisma, auth, ai, storage, stripe) — one file per integration
+server/trpc/       tRPC context, middleware/procedures, routers
+prisma/            working schema (source of truth for migrations)
+docs/              product spec — read this before changing business logic
+```
