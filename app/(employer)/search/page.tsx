@@ -10,14 +10,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Bookmark, ChevronLeft, ChevronRight, Lock, Search, Trash2, UserPlus } from "lucide-react";
 import { getSafeErrorMessage } from "@/lib/utils";
+
+const PAGE_SIZE = 20;
+type Proficiency = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
 
 type FullCandidate = Extract<RouterOutputs["employer"]["search"]["candidates"], { mode: "full" }>["results"][number];
 type SemanticCandidate = Extract<RouterOutputs["employer"]["search"]["semantic"], { mode: "full" }>["results"][number];
@@ -119,9 +131,34 @@ export default function SearchPage() {
   const [page, setPage] = useState(1);
   const [queryInput, setQueryInput] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
+  const [softwareIds, setSoftwareIds] = useState<{ softwareId: string; minProficiency: Proficiency }[]>([]);
+  const [skillIds, setSkillIds] = useState<string[]>([]);
+  const [rateMin, setRateMin] = useState("");
+  const [rateMax, setRateMax] = useState("");
+  const [minWeeklyAvailability, setMinWeeklyAvailability] = useState("");
+  const [saveSearchOpen, setSaveSearchOpen] = useState(false);
+  const [saveSearchName, setSaveSearchName] = useState("");
+
+  const softwareOptions = trpc.employer.industry.software.useQuery(
+    { industryId },
+    { enabled: !!industryId },
+  );
+  const skillOptions = trpc.employer.industry.skills.useQuery(
+    { industryId },
+    { enabled: !!industryId },
+  );
 
   const results = trpc.employer.search.candidates.useQuery(
-    { industryId, jobPostId: jobPostId || undefined, page },
+    {
+      industryId,
+      jobPostId: jobPostId || undefined,
+      page,
+      softwareIds: softwareIds.length ? softwareIds : undefined,
+      skillIds: skillIds.length ? skillIds : undefined,
+      rateMin: rateMin ? Number(rateMin) : undefined,
+      rateMax: rateMax ? Number(rateMax) : undefined,
+      minWeeklyAvailability: minWeeklyAvailability ? Number(minWeeklyAvailability) : undefined,
+    },
     { enabled: !!industryId && !activeQuery },
   );
 
@@ -146,6 +183,7 @@ export default function SearchPage() {
 
   function recallSearch(filters: Record<string, unknown>) {
     if (typeof filters.industryId === "string") setIndustryId(filters.industryId);
+    setJobPostId(typeof filters.jobPostId === "string" ? filters.jobPostId : "");
     setPage(1);
   }
 
@@ -161,10 +199,7 @@ export default function SearchPage() {
             variant="outline"
             size="sm"
             disabled={!industryId || saveSearch.isPending}
-            onClick={() => {
-              const name = window.prompt("Name this search");
-              if (name) saveSearch.mutate({ name, filters: { industryId, jobPostId: jobPostId || undefined } });
-            }}
+            onClick={() => setSaveSearchOpen(true)}
           >
             <Bookmark className="size-3.5" />
             Save this search
@@ -271,6 +306,96 @@ export default function SearchPage() {
           </SelectContent>
         </Select>
       </div>
+
+      {!activeQuery && industryId && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="outline" size="sm">
+                  Software{softwareIds.length > 0 && ` (${softwareIds.length})`}
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="start">
+              {softwareOptions.data?.map((s) => (
+                <DropdownMenuCheckboxItem
+                  key={s.id}
+                  checked={softwareIds.some((r) => r.softwareId === s.id)}
+                  onCheckedChange={(checked) => {
+                    setPage(1);
+                    setSoftwareIds((prev) =>
+                      checked
+                        ? [...prev, { softwareId: s.id, minProficiency: "INTERMEDIATE" }]
+                        : prev.filter((r) => r.softwareId !== s.id),
+                    );
+                  }}
+                >
+                  {s.name}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="outline" size="sm">
+                  Skills{skillIds.length > 0 && ` (${skillIds.length})`}
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="start">
+              {skillOptions.data?.map((s) => (
+                <DropdownMenuCheckboxItem
+                  key={s.id}
+                  checked={skillIds.includes(s.id)}
+                  onCheckedChange={(checked) => {
+                    setPage(1);
+                    setSkillIds((prev) => (checked ? [...prev, s.id] : prev.filter((id) => id !== s.id)));
+                  }}
+                >
+                  {s.name}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Input
+            className="w-28"
+            type="number"
+            min={0}
+            placeholder="Rate min"
+            value={rateMin}
+            onChange={(e) => {
+              setPage(1);
+              setRateMin(e.target.value);
+            }}
+          />
+          <Input
+            className="w-28"
+            type="number"
+            min={0}
+            placeholder="Rate max"
+            value={rateMax}
+            onChange={(e) => {
+              setPage(1);
+              setRateMax(e.target.value);
+            }}
+          />
+          <Input
+            className="w-40"
+            type="number"
+            min={0}
+            placeholder="Min hrs/wk"
+            value={minWeeklyAvailability}
+            onChange={(e) => {
+              setPage(1);
+              setMinWeeklyAvailability(e.target.value);
+            }}
+          />
+        </div>
+      )}
 
       {activeQuery && semanticResults.isLoading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -398,12 +523,50 @@ export default function SearchPage() {
             <ChevronLeft className="size-3.5" />
             Previous
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page * PAGE_SIZE >= (results.data.mode === "full" ? results.data.total : results.data.count)}
+            onClick={() => setPage((p) => p + 1)}
+          >
             Next
             <ChevronRight className="size-3.5" />
           </Button>
         </div>
       )}
+
+      <Dialog open={saveSearchOpen} onOpenChange={setSaveSearchOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save this search</DialogTitle>
+            <DialogDescription>Give this search a name so you can recall it later.</DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            placeholder="e.g. Senior QuickBooks VAs"
+            value={saveSearchName}
+            onChange={(e) => setSaveSearchName(e.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveSearchOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!saveSearchName.trim() || saveSearch.isPending}
+              onClick={() => {
+                saveSearch.mutate({
+                  name: saveSearchName.trim(),
+                  filters: { industryId, jobPostId: jobPostId || undefined },
+                });
+                setSaveSearchName("");
+                setSaveSearchOpen(false);
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

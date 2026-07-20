@@ -10,8 +10,10 @@ async function getWorkspaceId(prisma: typeof import("@/lib/prisma").prisma, user
 
 export const paymentRouter = router({
   // requires application.offer.status === "SIGNED" and candidate.payoutsEnabled === true,
-  // else throws PRECONDITION_FAILED. Standard (non-manual-capture) PaymentIntent, captured
-  // immediately onto platform balance. Payment row created status=HELD.
+  // else throws PRECONDITION_FAILED. Creates an unconfirmed PaymentIntent and returns its
+  // client_secret for the employer to confirm client-side via Stripe Elements — the actual
+  // Payment row (status=HELD) is created by the payment_intent.succeeded webhook, not here,
+  // since confirmation (3DS, card errors) happens after this call returns.
   fund: employerProcedure
     .input(z.object({ applicationId: z.string().uuid(), amount: z.number().positive() }))
     .mutation(async ({ ctx, input }) => {
@@ -33,24 +35,17 @@ export const paymentRouter = router({
         });
       }
 
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(input.amount * 100),
-        currency: "usd",
-        confirm: true,
-        payment_method: "pm_card_visa",
-        automatic_payment_methods: { enabled: true, allow_redirects: "never" },
-        metadata: { applicationId: input.applicationId },
-      });
-
-      return ctx.prisma.payment.create({
-        data: {
-          applicationId: input.applicationId,
-          candidateId: application.candidateId,
-          amount: input.amount,
-          stripePaymentIntentId: paymentIntent.id,
-          status: "HELD",
+      const paymentIntent = await stripe.paymentIntents.create(
+        {
+          amount: Math.round(input.amount * 100),
+          currency: "usd",
+          automatic_payment_methods: { enabled: true },
+          metadata: { applicationId: input.applicationId, candidateId: application.candidateId, amount: String(input.amount) },
         },
-      });
+        { idempotencyKey: `fund-${input.applicationId}` },
+      );
+
+      return { clientSecret: paymentIntent.client_secret };
     }),
 
   // creates a Transfer to candidate.stripeConnectAccountId for Payment.amount.

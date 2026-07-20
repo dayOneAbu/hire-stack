@@ -34,11 +34,25 @@ export async function POST(req: NextRequest) {
     }
     case "payment_intent.succeeded": {
       const intent = event.data.object as Stripe.PaymentIntent;
-      // Only a DRAFT/nonexistent-yet-HELD payment transitions; already-HELD is a no-op.
-      await prisma.payment.updateMany({
-        where: { stripePaymentIntentId: intent.id, status: { in: ["FAILED"] } },
-        data: { status: "HELD", heldAt: new Date() },
-      });
+      // The Payment row is created here (from metadata set in payment.fund), not by the
+      // mutation that created the PaymentIntent — confirmation happens client-side after that
+      // call returns. Upsert on stripePaymentIntentId (@unique) so a Stripe retry is a no-op.
+      const applicationId = intent.metadata.applicationId;
+      const candidateId = intent.metadata.candidateId;
+      const amount = intent.metadata.amount;
+      if (applicationId && candidateId && amount) {
+        await prisma.payment.upsert({
+          where: { stripePaymentIntentId: intent.id },
+          create: {
+            applicationId,
+            candidateId,
+            amount: Number(amount),
+            stripePaymentIntentId: intent.id,
+            status: "HELD",
+          },
+          update: {},
+        });
+      }
       break;
     }
     case "payment_intent.payment_failed": {

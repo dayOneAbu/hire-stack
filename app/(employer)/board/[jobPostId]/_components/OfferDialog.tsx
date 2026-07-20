@@ -17,6 +17,8 @@ import { FileText, Upload } from "lucide-react";
 import type { BoardApplication } from "./KanbanCard";
 import { getSafeErrorMessage } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { stripePromise } from "@/lib/stripe-client";
+import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 
 const STATUS_TONE: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -32,17 +34,46 @@ const PAYMENT_STATUS_TONE: Record<string, string> = {
   FAILED: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400",
 };
 
+function FundPaymentForm({ applicationId, onSuccess }: { applicationId: string; onSuccess: () => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleConfirm() {
+    if (!stripe || !elements) return;
+    setSubmitting(true);
+    const { error } = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+    });
+    setSubmitting(false);
+    if (error) {
+      toast.error(error.message ?? "Payment failed");
+      return;
+    }
+    toast.success("Payment funded and held");
+    onSuccess();
+  }
+
+  return (
+    <div className="space-y-3">
+      <PaymentElement />
+      <Button className="w-full" disabled={!stripe || submitting} onClick={handleConfirm}>
+        {submitting ? "Confirming…" : "Confirm payment"}
+      </Button>
+    </div>
+  );
+}
+
 function PaymentSection({ applicationId }: { applicationId: string }) {
   const utils = trpc.useUtils();
   const [amount, setAmount] = useState("");
   const [confirmRefund, setConfirmRefund] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const payment = trpc.employer.payment.byApplication.useQuery({ applicationId });
 
   const fund = trpc.employer.payment.fund.useMutation({
-    onSuccess: () => {
-      toast.success("Payment funded and held");
-      utils.employer.payment.byApplication.invalidate({ applicationId });
-    },
+    onSuccess: (res) => setClientSecret(res.clientSecret),
     onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const release = trpc.employer.payment.release.useMutation({
@@ -73,6 +104,16 @@ function PaymentSection({ applicationId }: { applicationId: string }) {
             {payment.data.status}
           </Badge>
         </div>
+      ) : clientSecret ? (
+        <Elements stripe={stripePromise} options={{ clientSecret }}>
+          <FundPaymentForm
+            applicationId={applicationId}
+            onSuccess={() => {
+              setClientSecret(null);
+              utils.employer.payment.byApplication.invalidate({ applicationId });
+            }}
+          />
+        </Elements>
       ) : (
         <div className="flex gap-2">
           <Input

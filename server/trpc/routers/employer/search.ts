@@ -10,6 +10,12 @@ import { rankByRelevance } from "@/server/services/aiRanking";
 
 const PAGE_SIZE = 20;
 
+const PROFICIENCY_ORDER = ["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const;
+
+function proficiencyAtLeast(minProficiency: (typeof PROFICIENCY_ORDER)[number]) {
+  return PROFICIENCY_ORDER.slice(PROFICIENCY_ORDER.indexOf(minProficiency));
+}
+
 const searchInput = z.object({
   industryId: z.string().uuid(),
   softwareIds: z
@@ -58,9 +64,14 @@ export const searchRouter = router({
         : {}),
       ...(input.softwareIds?.length
         ? {
-            softwareInventory: {
-              some: { softwareId: { in: input.softwareIds.map((s) => s.softwareId) } },
-            },
+            AND: input.softwareIds.map((req) => ({
+              softwareInventory: {
+                some: {
+                  softwareId: req.softwareId,
+                  proficiency: { in: proficiencyAtLeast(req.minProficiency) },
+                },
+              },
+            })),
           }
         : {}),
       ...(input.skillIds?.length
