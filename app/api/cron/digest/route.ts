@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeMatchScore } from "@/server/services/matchScore";
 import { rankByRelevance } from "@/server/services/aiRanking";
+import { verifyCronAuth } from "@/lib/cronAuth";
 
 // Daily cron target: "new matches for you" (candidate) / "new candidates match your saved
 // search" (employer) digest, FRS §20. Re-scores against jobs/candidates created in the last 24h
@@ -10,7 +11,10 @@ import { rankByRelevance } from "@/server/services/aiRanking";
 // ponytail: no email provider is wired into this stack yet (PRD §8 never picked one) — this
 // computes and logs the digest payload instead of sending mail. Swap the console.log calls for
 // a real send (e.g. Resend) once a provider is chosen.
-export async function POST() {
+export async function POST(request: Request) {
+  const unauthorized = verifyCronAuth(request);
+  if (unauthorized) return unauthorized;
+
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const newJobPosts = await prisma.jobPost.findMany({
