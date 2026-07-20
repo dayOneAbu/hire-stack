@@ -53,6 +53,17 @@ export const offerRouter = router({
     .mutation(async ({ ctx, input }) => {
       const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
       await assertApplicationInWorkspace(ctx.prisma, input.applicationId, workspaceId);
+      const existing = await ctx.prisma.offer.findUnique({
+        where: { applicationId: input.applicationId },
+      });
+      // Offer.applicationId is @unique — a previously DECLINED offer must be replaced,
+      // not left blocking a fresh attempt (FRS §19.1: offer creation isn't a one-shot gate).
+      if (existing) {
+        if (existing.status !== "DECLINED") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "An offer already exists for this application" });
+        }
+        await ctx.prisma.offer.delete({ where: { id: existing.id } });
+      }
       return ctx.prisma.offer.create({
         data: { applicationId: input.applicationId, documentUrl: input.documentUrl },
       });

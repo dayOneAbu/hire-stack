@@ -14,8 +14,11 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 function ProfileStatusCard() {
   const status = trpc.candidate.resume.status.useQuery();
+  // Resume parsing is still in flight (AI extraction pending) — the only state that's actually
+  // gated on parseStatus rather than the FRS §16 isSearchable/anomaly signal below.
+  const isParsing = status.data?.parseStatus === "PENDING" || status.data?.parseStatus === "FAILED";
   const nextStep = trpc.candidate.wizard.getNextStep.useQuery(undefined, {
-    enabled: status.data?.parseStatus === "PARSED",
+    enabled: !!status.data && !isParsing,
   });
 
   if (status.isLoading) return <Skeleton className="h-24 w-full" />;
@@ -31,7 +34,7 @@ function ProfileStatusCard() {
     );
   }
 
-  if (status.data?.parseStatus !== "PARSED" || (nextStep.data && nextStep.data.totalPending > 0)) {
+  if (isParsing || (nextStep.data && nextStep.data.totalPending > 0)) {
     return (
       <Card className="border-dashed">
         <CardHeader>
@@ -45,7 +48,7 @@ function ProfileStatusCard() {
     );
   }
 
-  if (status.data.isSearchable) {
+  if (status.data!.isSearchable) {
     return (
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="flex items-center gap-3 pt-6">

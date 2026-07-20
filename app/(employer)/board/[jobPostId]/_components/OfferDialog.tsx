@@ -204,6 +204,30 @@ export function OfferDialog({ app, onClose }: { app: BoardApplication | null; on
               </p>
             )}
             {offer.data.status === "SIGNED" && app && <PaymentSection applicationId={app.id} />}
+            {offer.data.status === "DECLINED" && (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">The candidate declined this offer.</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleUpload(file);
+                  }}
+                />
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="size-4" />
+                  {uploading ? "Uploading..." : "Upload new offer"}
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-3">

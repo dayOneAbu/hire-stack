@@ -13,16 +13,15 @@ const periodInput = z.object({
 });
 
 // Same rule pass as AI extraction — manual entry isn't a separate code path (FRS §16).
-async function rerunAnomaliesFor(
-  prisma: typeof import("@/lib/prisma").prisma,
-  candidateId: string,
-  periodId: string,
-) {
-  await prisma.employmentAnomaly.deleteMany({
-    where: { employmentPeriodId: periodId, status: "PENDING_CANDIDATE" },
-  });
+// Cross-period rules (TIMELINE_GAP, CONCURRENT_EMPLOYERS) can attach to periods other than the
+// one just edited, so this recomputes against every remaining period, not just the touched one.
+// Only PENDING_CANDIDATE rows are ever replaced — resolved/flagged anomalies are left alone.
+async function rerunAnomaliesFor(prisma: typeof import("@/lib/prisma").prisma, candidateId: string) {
   const allPeriods = await prisma.employmentPeriod.findMany({ where: { candidateId } });
-  const anomalies = runAnomalyRules(allPeriods).filter((a) => a.employmentPeriodId === periodId);
+  await prisma.employmentAnomaly.deleteMany({
+    where: { status: "PENDING_CANDIDATE", employmentPeriod: { candidateId } },
+  });
+  const anomalies = runAnomalyRules(allPeriods);
   if (anomalies.length > 0) {
     await prisma.employmentAnomaly.createMany({ data: anomalies });
   }
@@ -36,7 +35,7 @@ export const employmentPeriodRouter = router({
     const period = await ctx.prisma.employmentPeriod.create({
       data: { candidateId: candidate.id, ...input },
     });
-    await rerunAnomaliesFor(ctx.prisma, candidate.id, period.id);
+    await rerunAnomaliesFor(ctx.prisma, candidate.id);
     await recomputeIsSearchable(candidate.id);
     return period;
   }),
@@ -52,7 +51,7 @@ export const employmentPeriodRouter = router({
         where: { id, candidateId: candidate.id },
         data,
       });
-      await rerunAnomaliesFor(ctx.prisma, candidate.id, period.id);
+      await rerunAnomaliesFor(ctx.prisma, candidate.id);
       await recomputeIsSearchable(candidate.id);
       return period;
     }),
@@ -62,6 +61,7 @@ export const employmentPeriodRouter = router({
       where: { userId: ctx.session.user.id },
     });
     await ctx.prisma.employmentPeriod.delete({ where: { id: input.id, candidateId: candidate.id } });
+    await rerunAnomaliesFor(ctx.prisma, candidate.id);
     await recomputeIsSearchable(candidate.id);
   }),
 

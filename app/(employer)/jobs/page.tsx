@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Archive, Briefcase, Copy, KanbanSquare, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { Archive, Briefcase, CalendarPlus, Copy, KanbanSquare, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { getSafeErrorMessage } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -25,6 +25,16 @@ const STATUS_TONE: Record<string, string> = {
   EXPIRED: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400",
   FILLED: "bg-primary/10 text-primary",
 };
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Mirrors the one-time-only rule in jobPost.extend: already extended once the
+// current window is longer than the original activatedAt + 30d.
+function alreadyExtended(job: { activatedAt: Date | string | null; expiresAt: Date | string | null }) {
+  if (!job.activatedAt || !job.expiresAt) return false;
+  const originalExpiry = new Date(job.activatedAt).getTime() + THIRTY_DAYS_MS;
+  return new Date(job.expiresAt).getTime() > originalExpiry;
+}
 
 export default function JobsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
@@ -53,6 +63,13 @@ export default function JobsPage() {
   });
   const resume = trpc.employer.jobPost.resume.useMutation({
     onSuccess: () => utils.employer.jobPost.list.invalidate(),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
+  });
+  const extend = trpc.employer.jobPost.extend.useMutation({
+    onSuccess: () => {
+      toast.success("Job post extended 30 days");
+      utils.employer.jobPost.list.invalidate();
+    },
     onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
   const deleteDraft = trpc.employer.jobPost.deleteDraft.useMutation({
@@ -155,6 +172,17 @@ export default function JobsPage() {
                 <Button size="sm" onClick={() => resume.mutate({ jobPostId: job.id })} disabled={resume.isPending}>
                   <Play className="size-3.5" />
                   Resume
+                </Button>
+              )}
+              {job.status === "ACTIVE" && !alreadyExtended(job) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => extend.mutate({ jobPostId: job.id })}
+                  disabled={extend.isPending}
+                >
+                  <CalendarPlus className="size-3.5" />
+                  Extend
                 </Button>
               )}
               <DropdownMenu>
