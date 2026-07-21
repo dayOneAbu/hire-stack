@@ -25,10 +25,10 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Bookmark, ChevronLeft, ChevronRight, Lock, Search, Trash2, UserPlus } from "lucide-react";
+import { ArrowDownAZ, ArrowUpAZ, Bookmark, ChevronLeft, ChevronRight, Lock, Search, Trash2, UserPlus } from "lucide-react";
 import { getSafeErrorMessage } from "@/lib/utils";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = Number(process.env.NEXT_PUBLIC_PAGE_SIZE_SEARCH ?? 20);
 type Proficiency = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
 
 type FullCandidate = Extract<RouterOutputs["employer"]["search"]["candidates"], { mode: "full" }>["results"][number];
@@ -138,6 +138,8 @@ export default function SearchPage() {
   const [minWeeklyAvailability, setMinWeeklyAvailability] = useState("");
   const [saveSearchOpen, setSaveSearchOpen] = useState(false);
   const [saveSearchName, setSaveSearchName] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "rate">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const softwareOptions = trpc.employer.industry.software.useQuery(
     { industryId },
@@ -158,6 +160,8 @@ export default function SearchPage() {
       rateMin: rateMin ? Number(rateMin) : undefined,
       rateMax: rateMax ? Number(rateMax) : undefined,
       minWeeklyAvailability: minWeeklyAvailability ? Number(minWeeklyAvailability) : undefined,
+      sortBy,
+      sortDir,
     },
     { enabled: !!industryId && !activeQuery },
   );
@@ -270,6 +274,30 @@ export default function SearchPage() {
 
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row">
         <Select
+          items={jobs.data?.map((j) => ({ value: j.id, label: j.title })) ?? []}
+          value={jobPostId}
+          onValueChange={(v) => {
+            setJobPostId(v ?? "");
+            const job = jobs.data?.find((j) => j.id === v);
+            if (job) {
+              setIndustryId(job.industryId);
+              setPage(1);
+            }
+          }}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Search for a job post" />
+          </SelectTrigger>
+          <SelectContent>
+            {jobs.data?.map((j) => (
+              <SelectItem key={j.id} value={j.id}>
+                {j.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
           items={industries.data?.map((i) => ({ value: i.id, label: i.name })) ?? []}
           value={industryId}
           onValueChange={(v) => {
@@ -278,29 +306,12 @@ export default function SearchPage() {
           }}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select an industry" />
+            <SelectValue placeholder={jobPostId ? "Industry" : "...or just pick an industry to browse"} />
           </SelectTrigger>
           <SelectContent>
             {industries.data?.map((i) => (
               <SelectItem key={i.id} value={i.id}>
                 {i.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          items={jobs.data?.map((j) => ({ value: j.id, label: j.title })) ?? []}
-          value={jobPostId}
-          onValueChange={(v) => setJobPostId(v ?? "")}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Score against a job post (optional)" />
-          </SelectTrigger>
-          <SelectContent>
-            {jobs.data?.map((j) => (
-              <SelectItem key={j.id} value={j.id}>
-                {j.title}
               </SelectItem>
             ))}
           </SelectContent>
@@ -394,6 +405,36 @@ export default function SearchPage() {
               setMinWeeklyAvailability(e.target.value);
             }}
           />
+
+          <Select
+            items={[
+              { value: "name", label: "Sort: Name" },
+              { value: "rate", label: "Sort: Rate" },
+            ]}
+            value={sortBy}
+            onValueChange={(v) => {
+              setPage(1);
+              setSortBy((v as "name" | "rate") ?? "name");
+            }}
+          >
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Sort: Name</SelectItem>
+              <SelectItem value="rate">Sort: Rate</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setPage(1);
+              setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+            }}
+          >
+            {sortDir === "asc" ? <ArrowUpAZ className="size-3.5" /> : <ArrowDownAZ className="size-3.5" />}
+          </Button>
         </div>
       )}
 
@@ -445,7 +486,8 @@ export default function SearchPage() {
       {!activeQuery && !industryId && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
           <Search className="size-8 text-muted-foreground" />
-          <p className="mt-3 text-sm font-medium text-foreground">Select an industry to start searching</p>
+          <p className="mt-3 text-sm font-medium text-foreground">Pick a job post to search scored candidates</p>
+          <p className="mt-1 text-sm text-muted-foreground">Or select an industry above to browse without scoring.</p>
         </div>
       )}
 

@@ -19,6 +19,7 @@ export type BoardApplication = {
   id: string;
   currentStage: string;
   overallMatchScore: number | null;
+  createdAt: string | Date;
   candidate: { id: string; firstName: string; lastName: string };
   notes: { id: string; content: string; authorId: string }[];
 };

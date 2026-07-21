@@ -8,7 +8,7 @@ import { embedTexts, answerAboutCandidate } from "@/lib/ai";
 import { searchCandidateChunks, blendScore, topChunksForCandidate } from "@/server/services/embeddings";
 import { rankByRelevance } from "@/server/services/aiRanking";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = Number(process.env.NEXT_PUBLIC_PAGE_SIZE_SEARCH ?? 20);
 
 const PROFICIENCY_ORDER = ["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const;
 
@@ -27,6 +27,8 @@ const searchInput = z.object({
   minWeeklyAvailability: z.number().optional(),
   jobPostId: z.string().uuid().optional(),
   page: z.number().int().positive().default(1),
+  sortBy: z.enum(["name", "rate"]).default("name"),
+  sortDir: z.enum(["asc", "desc"]).default("asc"),
 });
 
 function rateRangeBucket(min: number | null, max: number | null): string {
@@ -79,10 +81,16 @@ export const searchRouter = router({
         : {}),
     };
 
+    const orderBy: Prisma.CandidateOrderByWithRelationInput =
+      input.sortBy === "rate"
+        ? { targetHourlyRateMin: input.sortDir }
+        : { firstName: input.sortDir };
+
     const [total, candidates] = await Promise.all([
       ctx.prisma.candidate.count({ where }),
       ctx.prisma.candidate.findMany({
         where,
+        orderBy,
         skip: (input.page - 1) * PAGE_SIZE,
         take: PAGE_SIZE,
         include: {

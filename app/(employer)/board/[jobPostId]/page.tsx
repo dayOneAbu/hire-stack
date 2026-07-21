@@ -17,7 +17,9 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { trpc } from "@/lib/trpc/client";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ArrowDownAZ, ArrowLeft, ArrowUpAZ, Search } from "lucide-react";
 import { KanbanColumn } from "./_components/KanbanColumn";
 import { FunnelChart } from "./_components/FunnelChart";
 import { KanbanCard, type BoardApplication } from "./_components/KanbanCard";
@@ -49,6 +51,8 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
   const [messagesAppId, setMessagesAppId] = useState<string | null>(null);
   const [offerAppId, setOfferAppId] = useState<string | null>(null);
   const [askAppId, setAskAppId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"score" | "date">("date");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -72,14 +76,27 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
   });
 
   const applications = useMemo(() => board.data ?? [], [board.data]);
+
+  const visibleApplications = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = q
+      ? applications.filter((a) => `${a.candidate.firstName} ${a.candidate.lastName}`.toLowerCase().includes(q))
+      : applications;
+    return [...filtered].sort((a, b) =>
+      sortBy === "score"
+        ? (b.overallMatchScore ?? -1) - (a.overallMatchScore ?? -1)
+        : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }, [applications, search, sortBy]);
+
   const byStage = useMemo(() => {
     const grouped = new Map<string, BoardApplication[]>();
     for (const stage of STAGES) grouped.set(stage.value, []);
-    for (const app of applications) {
+    for (const app of visibleApplications) {
       grouped.get(app.currentStage)?.push(app);
     }
     return grouped;
-  }, [applications]);
+  }, [visibleApplications]);
 
   const activeApp = applications.find((a) => a.id === activeId) ?? null;
   const notesApp = applications.find((a) => a.id === notesAppId) ?? null;
@@ -122,6 +139,22 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
           {jobPost.data?.title ?? "Hiring board"}
         </h1>
         <p className="text-sm text-muted-foreground">Drag candidates across stages as they progress.</p>
+      </div>
+
+      <div className="flex flex-col gap-3 border-b border-border px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search candidates..."
+            className="pl-9"
+          />
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setSortBy((s) => (s === "date" ? "score" : "date"))}>
+          {sortBy === "date" ? <ArrowDownAZ className="size-3.5" /> : <ArrowUpAZ className="size-3.5" />}
+          Sort: {sortBy === "date" ? "Newest" : "Match score"}
+        </Button>
       </div>
 
       <FunnelChart jobPostId={jobPostId} />
