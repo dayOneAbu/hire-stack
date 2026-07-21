@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Bookmark, BookmarkCheck, CheckCircle2, Clock, Inbox, Search, Sparkles } from "lucide-react";
 import { useState } from "react";
@@ -137,10 +138,10 @@ function MatchedJobs() {
           <Card key={jobPost.id}>
             <CardHeader>
               <CardTitle className="flex items-center justify-between gap-2">
-                <span>{jobPost.title}</span>
+                <span className="line-clamp-1">{jobPost.title}</span>
                 <Badge variant="secondary">{overallScore.overallMatchScore}% match</Badge>
               </CardTitle>
-              <CardDescription className="line-clamp-2">{jobPost.description}</CardDescription>
+              <CardDescription className="line-clamp-2 min-h-10">{jobPost.description}</CardDescription>
             </CardHeader>
             <CardFooter className="justify-between">
               <Button
@@ -210,10 +211,10 @@ function RecommendedJobs() {
         <Card key={jobPost.id}>
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-2">
-              <span>{jobPost.title}</span>
+              <span className="line-clamp-1">{jobPost.title}</span>
               <Badge variant="secondary">{Math.round(similarity * 100)}% fit</Badge>
             </CardTitle>
-            <CardDescription className="line-clamp-2">{jobPost.description}</CardDescription>
+            <CardDescription className="line-clamp-2 min-h-10">{jobPost.description}</CardDescription>
           </CardHeader>
         </Card>
       ))}
@@ -354,28 +355,30 @@ function SavedJobs() {
 
 export default function DashboardPage() {
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8 p-6 py-10">
+    <div className="mx-auto w-full max-w-3xl space-y-6 p-6 py-10">
       <ProfileStatusCard />
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">Matched jobs</h2>
-        <MatchedJobs />
-      </section>
+      <Tabs defaultValue="matched">
+        <TabsList className="w-full">
+          <TabsTrigger value="matched">Matched</TabsTrigger>
+          <TabsTrigger value="recommended">Recommended</TabsTrigger>
+          <TabsTrigger value="applications">Applications</TabsTrigger>
+          <TabsTrigger value="saved">Saved</TabsTrigger>
+        </TabsList>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">Recommended for you</h2>
-        <RecommendedJobs />
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">My applications</h2>
-        <MyApplications />
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">Saved jobs</h2>
-        <SavedJobs />
-      </section>
+        <TabsContent value="matched" className="pt-3">
+          <MatchedJobs />
+        </TabsContent>
+        <TabsContent value="recommended" className="pt-3">
+          <RecommendedJobs />
+        </TabsContent>
+        <TabsContent value="applications" className="pt-3">
+          <MyApplications />
+        </TabsContent>
+        <TabsContent value="saved" className="pt-3">
+          <SavedJobs />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

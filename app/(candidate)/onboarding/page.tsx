@@ -29,8 +29,13 @@ export default function OnboardingPage() {
   });
 
   const parseStatus = status.data?.parseStatus ?? null;
-  const derivedStage: Stage | null =
-    parseStatus !== "PARSED" ? "resume" : nextStep.data ? (nextStep.data.totalPending + nextStep.data.totalFlagged > 0 ? "wizard" : "software") : null;
+  const derivedStage: Stage | null = status.data?.onboardingCompletedAt
+    ? "done"
+    : parseStatus !== "PARSED"
+      ? "resume"
+      : nextStep.data
+        ? (nextStep.data.totalPending + nextStep.data.totalFlagged > 0 ? "wizard" : "software")
+        : null;
   const stage = stageOverride ?? derivedStage;
 
   if (status.isError) {

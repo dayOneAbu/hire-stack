@@ -94,7 +94,9 @@ export function SoftwareConfirm({ onDone }: { onDone: () => void }) {
         ))}
       </CardContent>
       <CardFooter>
-        <Button onClick={onDone}>Continue</Button>
+        <Button onClick={() => completeOnboarding.mutate()} loading={completeOnboarding.isPending} loadingText="Finishing…">
+          Continue
+        </Button>
       </CardFooter>
     </Card>
   );
