@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { ShieldAlert } from "lucide-react";
 import { getSafeErrorMessage } from "@/lib/utils";
+import { ListToolbar, ListPagination } from "@/components/ui/list-controls";
+import { useListControls } from "@/lib/useListControls";
 
 function SimilarAnomalies({ anomalyId }: { anomalyId: string }) {
   const similar = trpc.admin.reviewQueue.similarAnomalies.useQuery({ anomalyId });
@@ -37,6 +39,10 @@ export default function ReviewQueuePage() {
       utils.admin.reviewQueue.list.invalidate();
     },
     onError: (e) => toast.error(getSafeErrorMessage(e)),
+  });
+  const list = useListControls(queue.data ?? [], (a, b, dir) => {
+    const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    return dir === "desc" ? -diff : diff;
   });
 
   return (
@@ -72,8 +78,12 @@ export default function ReviewQueuePage() {
         </div>
       )}
 
+      {!!queue.data?.length && (
+        <ListToolbar sortDir={list.sortDir} onSortDirChange={list.setSortDir} sortLabel="Flagged" />
+      )}
+
       <div className="space-y-3">
-        {queue.data?.map((a) => (
+        {list.pageItems.map((a) => (
           <Card key={a.id}>
             <CardHeader>
               <CardTitle className="text-base">
@@ -105,6 +115,8 @@ export default function ReviewQueuePage() {
           </Card>
         ))}
       </div>
+
+      <ListPagination page={list.page} totalPages={list.totalPages} total={list.total} onPageChange={list.setPage} />
     </div>
   );
 }

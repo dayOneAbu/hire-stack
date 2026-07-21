@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "@/server/trpc/trpc";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = Number(process.env.NEXT_PUBLIC_PAGE_SIZE_AUDIT_TRAIL ?? 50);
 
 export const auditTrailRouter = router({
   list: adminProcedure
@@ -21,6 +21,7 @@ export const auditTrailRouter = router({
           ])
           .optional(),
         page: z.number().int().positive().default(1),
+        sortDir: z.enum(["asc", "desc"]).default("desc"),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -29,7 +30,7 @@ export const auditTrailRouter = router({
         ctx.prisma.auditTrail.count({ where }),
         ctx.prisma.auditTrail.findMany({
           where,
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: input.sortDir },
           skip: (input.page - 1) * PAGE_SIZE,
           take: PAGE_SIZE,
           include: { user: { select: { name: true, email: true } } },

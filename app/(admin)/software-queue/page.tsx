@@ -10,9 +10,15 @@ import { toast } from "sonner";
 import { PackageSearch } from "lucide-react";
 import { getSafeErrorMessage } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ListToolbar, ListPagination } from "@/components/ui/list-controls";
+import { useListControls } from "@/lib/useListControls";
 
 export default function SoftwareQueuePage() {
   const queue = trpc.admin.softwareQueue.list.useQuery();
+  const list = useListControls(queue.data ?? [], (a, b, dir) => {
+    const diff = a.name.localeCompare(b.name);
+    return dir === "desc" ? -diff : diff;
+  });
   const utils = trpc.useUtils();
   const approve = trpc.admin.softwareQueue.approve.useMutation({
     onSuccess: () => utils.admin.softwareQueue.list.invalidate(),
@@ -61,9 +67,19 @@ export default function SoftwareQueuePage() {
         </div>
       )}
 
+      {!!queue.data?.length && (
+        <ListToolbar
+          sortDir={list.sortDir}
+          onSortDirChange={list.setSortDir}
+          sortLabel="Name"
+          descLabel="Z-A"
+          ascLabel="A-Z"
+        />
+      )}
+
       <div className="space-y-3">
-        {queue.data?.map((s) => {
-          const others = queue.data.filter((o) => o.id !== s.id && o.industryId === s.industryId);
+        {list.pageItems.map((s) => {
+          const others = (queue.data ?? []).filter((o) => o.id !== s.id && o.industryId === s.industryId);
           return (
             <Card key={s.id}>
               <CardHeader>
@@ -107,6 +123,8 @@ export default function SoftwareQueuePage() {
           );
         })}
       </div>
+
+      <ListPagination page={list.page} totalPages={list.totalPages} total={list.total} onPageChange={list.setPage} />
 
       <ConfirmDialog
         open={mergeConfirm !== null}

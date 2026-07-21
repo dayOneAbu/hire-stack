@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollText } from "lucide-react";
+import { ArrowDownAZ, ArrowUpAZ, ScrollText } from "lucide-react";
+
+const PAGE_SIZE = Number(process.env.NEXT_PUBLIC_PAGE_SIZE_AUDIT_TRAIL ?? 50);
 
 const ACTIONS = [
   "USER_LOGIN",
@@ -25,10 +27,12 @@ const ALL_ACTIONS = "__all__";
 export default function AuditTrailPage() {
   const [action, setAction] = useState<string>(ALL_ACTIONS);
   const [page, setPage] = useState(1);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const query = trpc.admin.auditTrail.list.useQuery({
     action: action === ALL_ACTIONS ? undefined : (action as (typeof ACTIONS)[number]),
     page,
+    sortDir,
   });
 
   return (
@@ -38,26 +42,39 @@ export default function AuditTrailPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Audit trail</h1>
           <p className="mt-1 text-sm text-muted-foreground">Every recorded platform action, most recent first.</p>
         </div>
-        <Select
-          items={[{ value: ALL_ACTIONS, label: "All actions" }, ...ACTIONS.map((a) => ({ value: a, label: a }))]}
-          value={action}
-          onValueChange={(v) => {
-            setAction(v ?? ALL_ACTIONS);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="All actions" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_ACTIONS}>All actions</SelectItem>
-            {ACTIONS.map((a) => (
-              <SelectItem key={a} value={a}>
-                {a}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select
+            items={[{ value: ALL_ACTIONS, label: "All actions" }, ...ACTIONS.map((a) => ({ value: a, label: a }))]}
+            value={action}
+            onValueChange={(v) => {
+              setAction(v ?? ALL_ACTIONS);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="All actions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_ACTIONS}>All actions</SelectItem>
+              {ACTIONS.map((a) => (
+                <SelectItem key={a} value={a}>
+                  {a}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+              setPage(1);
+            }}
+          >
+            {sortDir === "desc" ? <ArrowDownAZ className="size-3.5" /> : <ArrowUpAZ className="size-3.5" />}
+            {sortDir === "desc" ? "Newest" : "Oldest"}
+          </Button>
+        </div>
       </div>
 
       {query.isLoading && (
@@ -113,7 +130,7 @@ export default function AuditTrailPage() {
             <Button
               variant="outline"
               size="sm"
-              disabled={page * 50 >= query.data.total}
+              disabled={page * PAGE_SIZE >= query.data.total}
               onClick={() => setPage((p) => p + 1)}
             >
               Next

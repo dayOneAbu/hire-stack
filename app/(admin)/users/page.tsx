@@ -11,12 +11,21 @@ import { Search, UserX } from "lucide-react";
 import { toast } from "sonner";
 import { getSafeErrorMessage } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ListPagination } from "@/components/ui/list-controls";
+import { ArrowDownAZ, ArrowUpAZ } from "lucide-react";
+
+const PAGE_SIZE = Number(process.env.NEXT_PUBLIC_PAGE_SIZE_USERS ?? 25);
 
 export default function UsersPage() {
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [suspendTarget, setSuspendTarget] = useState<{ id: string; label: string } | null>(null);
   const utils = trpc.useUtils();
-  const results = trpc.admin.users.search.useQuery({ query }, { enabled: query.length > 0 });
+  const results = trpc.admin.users.search.useQuery(
+    { query, page, sortDir },
+    { enabled: query.length > 0 },
+  );
   const suspend = trpc.admin.users.suspend.useMutation({
     onSuccess: () => {
       toast.success("User suspended");
@@ -42,14 +51,30 @@ export default function UsersPage() {
         </p>
       </div>
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name or email..."
-          className="pl-9"
-        />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Search by name or email..."
+            className="pl-9"
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+            setPage(1);
+          }}
+        >
+          {sortDir === "desc" ? <ArrowDownAZ className="size-3.5" /> : <ArrowUpAZ className="size-3.5" />}
+          Joined: {sortDir === "desc" ? "Newest" : "Oldest"}
+        </Button>
       </div>
 
       <div className="space-y-3">
@@ -69,7 +94,7 @@ export default function UsersPage() {
           </div>
         )}
 
-        {results.data?.map((u) => (
+        {results.data?.users.map((u) => (
           <Card key={u.id}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -116,7 +141,7 @@ export default function UsersPage() {
             </CardFooter>
           </Card>
         ))}
-        {query.length > 0 && results.data?.length === 0 && (
+        {query.length > 0 && results.data?.users.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
             <UserX className="size-8 text-muted-foreground" />
             <p className="mt-3 text-sm font-medium text-foreground">No users found</p>
@@ -124,6 +149,15 @@ export default function UsersPage() {
           </div>
         )}
       </div>
+
+      {results.data && results.data.total > 0 && (
+        <ListPagination
+          page={page}
+          totalPages={Math.max(1, Math.ceil(results.data.total / PAGE_SIZE))}
+          total={results.data.total}
+          onPageChange={setPage}
+        />
+      )}
 
       <ConfirmDialog
         open={suspendTarget !== null}

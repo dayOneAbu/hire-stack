@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { ListToolbar, ListPagination } from "@/components/ui/list-controls";
+import { useListControls } from "@/lib/useListControls";
 import { toast } from "sonner";
 
 const STATUS_TONE: Record<string, string> = {
@@ -28,6 +30,10 @@ export function ReferralsPage() {
       utils.referral.myReferrals.invalidate();
     },
     onError: (e) => toast.error(e.message),
+  });
+  const list = useListControls(referrals.data ?? [], (a, b, dir) => {
+    const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    return dir === "desc" ? -diff : diff;
   });
 
   const referralLink =
@@ -94,8 +100,11 @@ export function ReferralsPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex-col items-stretch gap-2">
-          {referrals.data?.map((r) => (
+        <CardFooter className="flex-col items-stretch gap-3">
+          {!!referrals.data?.length && (
+            <ListToolbar sortDir={list.sortDir} onSortDirChange={list.setSortDir} sortLabel="Added" />
+          )}
+          {list.pageItems.map((r) => (
             <div key={r.id} className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">{r.refereeEmail}</span>
               <Badge variant="outline" className={STATUS_TONE[r.status]}>
@@ -106,6 +115,7 @@ export function ReferralsPage() {
           {referrals.data?.length === 0 && (
             <p className="text-sm text-muted-foreground">No referrals yet.</p>
           )}
+          <ListPagination page={list.page} totalPages={list.totalPages} total={list.total} onPageChange={list.setPage} />
         </CardFooter>
       </Card>
     </div>

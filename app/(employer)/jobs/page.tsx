@@ -12,11 +12,16 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ListToolbar, ListPagination } from "@/components/ui/list-controls";
+import { useListControls } from "@/lib/useListControls";
 import { toast } from "sonner";
 import { Archive, Briefcase, CalendarPlus, Copy, KanbanSquare, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { getSafeErrorMessage } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+
+const ALL_STATUSES = "__all__";
 
 const STATUS_TONE: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -39,8 +44,18 @@ function alreadyExtended(job: { activatedAt: Date | string | null; expiresAt: Da
 export default function JobsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<{ id: string; title: string } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>(ALL_STATUSES);
   const jobs = trpc.employer.jobPost.list.useQuery();
   const utils = trpc.useUtils();
+
+  const filtered = useMemo(
+    () => (statusFilter === ALL_STATUSES ? (jobs.data ?? []) : (jobs.data ?? []).filter((j) => j.status === statusFilter)),
+    [jobs.data, statusFilter],
+  );
+  const list = useListControls(filtered, (a, b, dir) => {
+    const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    return dir === "desc" ? -diff : diff;
+  });
   const activate = trpc.employer.jobPost.activate.useMutation({
     onSuccess: () => utils.employer.jobPost.list.invalidate(),
     onError: (e) => toast.error(getSafeErrorMessage(e)),
@@ -110,6 +125,36 @@ export default function JobsPage() {
         </div>
       )}
 
+      {!!jobs.data?.length && (
+        <ListToolbar
+          sortDir={list.sortDir}
+          onSortDirChange={list.setSortDir}
+          sortLabel="Created"
+          right={
+            <Select
+              items={[
+                { value: ALL_STATUSES, label: "All statuses" },
+                ...Object.keys(STATUS_TONE).map((s) => ({ value: s, label: s })),
+              ]}
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v ?? ALL_STATUSES)}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_STATUSES}>All statuses</SelectItem>
+                {Object.keys(STATUS_TONE).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
+      )}
+
       {jobs.data?.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
           <Briefcase className="size-8 text-muted-foreground" />
@@ -129,12 +174,18 @@ export default function JobsPage() {
         </div>
       )}
 
+      {!!jobs.data?.length && filtered.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
+          <p className="text-sm text-muted-foreground">No job posts match that status.</p>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
-        {jobs.data?.map((job) => (
-          <Card key={job.id} className="transition-shadow hover:shadow-md">
+        {list.pageItems.map((job) => (
+          <Card key={job.id} className="relative transition-shadow hover:shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Link href={`/jobs/${job.id}`} className="truncate transition-colors hover:text-primary">
+                <Link href={`/jobs/${job.id}`} className="truncate after:absolute after:inset-0 hover:text-primary">
                   {job.title}
                 </Link>
                 <Badge className={STATUS_TONE[job.status] ?? ""} variant="outline">
@@ -148,13 +199,8 @@ export default function JobsPage() {
             </CardHeader>
             <CardContent>
               <p className="line-clamp-3 text-sm text-muted-foreground">{job.description}</p>
-              {job.description.length > 160 && (
-                <Link href={`/jobs/${job.id}`} className="mt-1 inline-block text-xs font-medium text-primary hover:underline">
-                  Read more
-                </Link>
-              )}
             </CardContent>
-            <CardFooter className="justify-end gap-2 border-t-0 bg-transparent pt-0">
+            <CardFooter className="relative z-10 justify-end gap-2 border-t-0 bg-transparent pt-0">
               <Button variant="outline" size="sm" render={<Link href={`/board/${job.id}`} />}>
                 <KanbanSquare className="size-3.5" />
                 Board
@@ -232,6 +278,8 @@ export default function JobsPage() {
           </Card>
         ))}
       </div>
+
+      <ListPagination page={list.page} totalPages={list.totalPages} total={list.total} onPageChange={list.setPage} />
 
       <ConfirmDialog
         open={deleteTarget !== null}
