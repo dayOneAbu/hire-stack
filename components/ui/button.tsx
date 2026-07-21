@@ -49,6 +49,8 @@ function Button({
   loadingText,
   disabled,
   children,
+  render,
+  nativeButton,
   ...props
 }: ButtonPrimitive.Props &
   VariantProps<typeof buttonVariants> & { loading?: boolean; loadingText?: string }) {
@@ -57,6 +59,8 @@ function Button({
       data-slot="button"
       disabled={disabled || loading}
       className={cn(buttonVariants({ variant, size, className }))}
+      render={render}
+      nativeButton={nativeButton ?? !render}
       {...props}
     >
       {loading && <Loader2Icon className="animate-spin" />}

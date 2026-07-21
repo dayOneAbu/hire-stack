@@ -5,9 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { MobileNav } from "@/components/mobile-nav";
 import { LifeBuoy, LogOut, PackageSearch, ScrollText, ShieldAlert, ShieldCheck, Users } from "lucide-react";
-
-const SUPPORT_EMAIL = "hello@hirestack.example";
 
 const NAV = [
   { href: "/software-queue", label: "Software queue", icon: PackageSearch },
@@ -29,9 +28,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       .join("")
       .toUpperCase() || "?";
 
+  const signOut = () =>
+    authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          router.push("/sign-in");
+          router.refresh();
+        },
+      },
+    });
+
   return (
-    <div className="flex min-h-dvh">
-      <aside className="hidden w-64 shrink-0 flex-col justify-between bg-sidebar text-sidebar-foreground md:flex">
+    <div className="flex h-dvh overflow-hidden">
+      <aside className="hidden w-64 shrink-0 flex-col justify-between overflow-y-auto bg-sidebar text-sidebar-foreground md:flex">
         <div>
           <div className="flex items-center gap-2 px-6 py-6">
             <ShieldCheck className="size-6 text-sidebar-primary" />
@@ -60,13 +69,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="border-t border-sidebar-border p-3">
-          <a
-            href={`mailto:${SUPPORT_EMAIL}`}
+          <Link
+            href="/support"
             className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
           >
             <LifeBuoy className="size-4 shrink-0" />
             Help &amp; support
-          </a>
+          </Link>
           <div className="flex items-center gap-3 rounded-lg px-3 py-2">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
               {initials}
@@ -80,7 +89,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               size="icon"
               className="size-8 shrink-0 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               aria-label="Sign out"
-              onClick={() => authClient.signOut({ fetchOptions: { onSuccess: () => router.push("/sign-in") } })}
+              onClick={() =>
+                authClient.signOut({
+                  fetchOptions: {
+                    onSuccess: () => {
+                      router.push("/sign-in");
+                      router.refresh();
+                    },
+                  },
+                })
+              }
             >
               <LogOut className="size-4" />
             </Button>
@@ -89,28 +107,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-2 border-b border-border bg-card px-3 py-2 md:hidden">
+        <header className="flex items-center gap-2 border-b border-border bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
           <ShieldCheck className="size-5 shrink-0 text-primary" />
-          <nav className="flex min-w-0 flex-1 items-center justify-end gap-0.5 overflow-x-auto">
-            {NAV.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href || pathname.startsWith(href + "/");
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={cn(
-                    "flex shrink-0 flex-col items-center gap-0.5 rounded-lg px-1.5 py-1.5 text-[11px] font-medium",
-                    active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <Icon className="size-4" />
-                  <span className="max-w-14 truncate">{label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+          <span className="text-sm font-semibold tracking-tight">HireStack Admin</span>
         </header>
-        <main className="flex-1 bg-background">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-background pb-16 md:pb-0">{children}</main>
+        <MobileNav nav={NAV} user={user} initials={initials} onSignOut={signOut} />
       </div>
     </div>
   );
