@@ -36,12 +36,12 @@ export default function SignInPage() {
     }
   }
 
-  async function signInDemo(email: string) {
+  async function signInDemo(email: string, password: string) {
     setError(null);
     setLoading(true);
     const { data, error: signInError } = await authClient.signIn.email({
       email,
-      password: "demopass1234",
+      password,
     });
     setLoading(false);
     if (signInError) {
@@ -98,7 +98,7 @@ export default function SignInPage() {
                   size="sm"
                   className="flex-1"
                   disabled={loading}
-                  onClick={() => signInDemo("demo-candidate@hirestack.dev")}
+                  onClick={() => signInDemo("candidate1@bulktest.dev", "bulkpass1234")}
                 >
                   Candidate
                 </Button>
@@ -108,7 +108,7 @@ export default function SignInPage() {
                   size="sm"
                   className="flex-1"
                   disabled={loading}
-                  onClick={() => signInDemo("demo-employer@hirestack.dev")}
+                  onClick={() => signInDemo("employer1@bulktest.dev", "bulkpass1234")}
                 >
                   Employer
                 </Button>
@@ -118,7 +118,7 @@ export default function SignInPage() {
                   size="sm"
                   className="flex-1"
                   disabled={loading}
-                  onClick={() => signInDemo("demo-admin@hirestack.dev")}
+                  onClick={() => signInDemo("admin1@bulktest.dev", "bulkpass1234")}
                 >
                   Admin
                 </Button>
