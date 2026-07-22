@@ -2,8 +2,7 @@ import { on } from "node:events";
 import { z } from "zod";
 import { TRPCError, tracked } from "@trpc/server";
 import { router, protectedProcedure } from "@/server/trpc/trpc";
-import { messageEvents, emitMessage } from "@/server/services/messageEvents";
-import type { Message } from "@prisma/client";
+import { messageEvents, emitMessage, emitRead, emitTyping, type MessageEvent } from "@/server/services/messageEvents";
 
 async function assertCanAccessApplication(
   prisma: typeof import("@/lib/prisma").prisma,
@@ -33,7 +32,7 @@ async function assertCanAccessApplication(
 
 export const messagesRouter = router({
   send: protectedProcedure
-    .input(z.object({ applicationId: z.string().uuid(), content: z.string().min(1) }))
+    .input(z.object({ applicationId: z.string().uuid(), content: z.string().trim().min(1) }))
     .mutation(async ({ ctx, input }) => {
       await assertCanAccessApplication(ctx.prisma, ctx.session.user.id, input.applicationId);
       const message = await ctx.prisma.message.create({
@@ -60,13 +59,20 @@ export const messagesRouter = router({
             orderBy: { createdAt: "asc" },
           });
           for (const message of missed) {
-            yield tracked(message.id, message);
+            yield tracked(message.id, { type: "message", message } satisfies MessageEvent);
           }
         }
       }
 
-      for await (const [message] of on(messageEvents, input.applicationId, { signal })) {
-        yield tracked((message as Message).id, message as Message);
+      for await (const [event] of on(messageEvents, input.applicationId, { signal })) {
+        const typed = event as MessageEvent;
+        // Only real messages need a durable tracked id for reconnect replay above;
+        // ephemeral read/typing pings are fine to miss on reconnect.
+        if (typed.type === "message") {
+          yield tracked(typed.message.id, typed);
+        } else {
+          yield typed;
+        }
       }
     }),
 
@@ -84,9 +90,20 @@ export const messagesRouter = router({
     .input(z.object({ applicationId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       await assertCanAccessApplication(ctx.prisma, ctx.session.user.id, input.applicationId);
-      await ctx.prisma.message.updateMany({
+      const { count } = await ctx.prisma.message.updateMany({
         where: { applicationId: input.applicationId, senderId: { not: ctx.session.user.id }, readAt: null },
         data: { readAt: new Date() },
       });
+      if (count > 0) {
+        emitRead(input.applicationId, ctx.session.user.id);
+      }
+    }),
+
+  // Ephemeral typing signal — not persisted, best-effort, fine to drop under load.
+  typing: protectedProcedure
+    .input(z.object({ applicationId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await assertCanAccessApplication(ctx.prisma, ctx.session.user.id, input.applicationId);
+      emitTyping(input.applicationId, ctx.session.user.id);
     }),
 });

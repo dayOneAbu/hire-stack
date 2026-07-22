@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
 import { authClient } from "@/lib/auth-client";
@@ -183,11 +183,15 @@ function OfferCard({ applicationId }: { applicationId: string }) {
   );
 }
 
+const TYPING_IDLE_MS = 3000;
+
 export default function ApplicationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const utils = trpc.useUtils();
   const { data: session } = authClient.useSession();
   const [draft, setDraft] = useState("");
+  const [otherTyping, setOtherTyping] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const app = trpc.candidate.jobs.myApplicationById.useQuery({ applicationId: id });
   const canMessage = app.data ? app.data.currentStage !== "INBOX" : false;
@@ -203,6 +207,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     },
     onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
+  const typing = trpc.messages.typing.useMutation();
 
   useEffect(() => {
     if (canMessage && messages.data?.length) markRead.mutate({ applicationId: id });
@@ -211,8 +216,30 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
 
   trpc.messages.onMessage.useSubscription(
     { applicationId: id },
-    { enabled: canMessage, onData: () => utils.messages.list.invalidate({ applicationId: id }) },
+    {
+      enabled: canMessage,
+      onData: (event) => {
+        const data = "data" in event ? event.data : event;
+        if (data.type === "typing") {
+          if (data.userId === session?.user.id) return;
+          setOtherTyping(true);
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), TYPING_IDLE_MS);
+          return;
+        }
+        if (data.type === "message" && data.message.senderId !== session?.user.id) {
+          setOtherTyping(false);
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        }
+        utils.messages.list.invalidate({ applicationId: id });
+      },
+    },
   );
+
+  function handleDraftChange(value: string) {
+    setDraft(value);
+    if (canMessage) typing.mutate({ applicationId: id });
+  }
 
   return (
     <div className="mx-auto flex h-full w-full max-w-2xl flex-col p-6 py-10">
@@ -253,19 +280,26 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
           ) : (
             <div className="flex-1 space-y-2 overflow-y-auto rounded-lg border border-border p-4">
               {messages.data?.length ? (
-                messages.data.map((m) => (
-                  <p
-                    key={m.id}
-                    className={cn(
-                      "max-w-[80%] rounded-lg px-3 py-2 text-sm",
-                      m.senderId === session?.user.id
-                        ? "ml-auto bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground",
-                    )}
-                  >
-                    {m.content}
-                  </p>
-                ))
+                (() => {
+                  const lastOwnMessageId = [...messages.data].reverse().find((m) => m.senderId === session?.user.id)?.id;
+                  return messages.data.map((m) => (
+                    <div key={m.id} className={cn("flex flex-col", m.senderId === session?.user.id ? "items-end" : "items-start")}>
+                      <p
+                        className={cn(
+                          "max-w-[80%] rounded-lg px-3 py-2 text-sm wrap-break-word whitespace-pre-wrap",
+                          m.senderId === session?.user.id
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-foreground",
+                        )}
+                      >
+                        {m.content}
+                      </p>
+                      {m.id === lastOwnMessageId && m.readAt && (
+                        <span className="mt-0.5 text-xs text-muted-foreground">Seen</span>
+                      )}
+                    </div>
+                  ));
+                })()
               ) : (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <MessageSquare className="size-8 text-muted-foreground" />
@@ -275,6 +309,9 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                   </p>
                 </div>
               )}
+              {otherTyping && (
+                <p className="text-xs text-muted-foreground">Typing…</p>
+              )}
             </div>
           )}
 
@@ -282,12 +319,12 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
             <Textarea
               placeholder="Write a message…"
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => handleDraftChange(e.target.value)}
               rows={2}
               className="flex-1"
             />
             <Button
-              disabled={!draft || send.isPending}
+              disabled={!draft.trim() || send.isPending}
               onClick={() => send.mutate({ applicationId: id, content: draft })}
             >
               Send
