@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { ArrowLeft, Archive, Copy, KanbanSquare, Pencil } from "lucide-react";
 import { getSafeErrorMessage } from "@/lib/utils";
+import { FunnelChart } from "../../board/[jobPostId]/_components/FunnelChart";
 
 const STATUS_TONE: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -88,6 +89,11 @@ export default function JobPostDetailPage({ params }: { params: Promise<{ jobPos
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-sm font-semibold text-foreground">Description</h2>
         <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{job.data.description}</p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card">
+        <h2 className="px-6 pt-5 text-sm font-semibold text-foreground">Applicant pipeline</h2>
+        <FunnelChart jobPostId={job.data.id} />
       </div>
 
       <div className="flex justify-end gap-2">

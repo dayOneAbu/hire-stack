@@ -141,11 +141,25 @@ export const jobsRouter = router({
       });
     }),
 
+  myApplicationById: candidateProcedure
+    .input(z.object({ applicationId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const candidateId = await getCandidateId(ctx.prisma, ctx.session.user.id);
+      const application = await ctx.prisma.jobApplication.findUniqueOrThrow({
+        where: { id: input.applicationId },
+        include: { jobPost: { include: { workspace: true } } },
+      });
+      if (application.candidateId !== candidateId) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      return { ...application, canWithdraw: canWithdraw(application) };
+    }),
+
   myApplications: candidateProcedure.query(async ({ ctx }) => {
     const candidateId = await getCandidateId(ctx.prisma, ctx.session.user.id);
     return ctx.prisma.jobApplication.findMany({
       where: { candidateId },
-      include: { jobPost: true },
+      include: { jobPost: { include: { workspace: true } } },
       orderBy: { createdAt: "desc" },
     });
   }),

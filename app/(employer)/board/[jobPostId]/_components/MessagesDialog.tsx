@@ -26,9 +26,11 @@ export function MessagesDialog({
   const { data: session } = authClient.useSession();
   const [draft, setDraft] = useState("");
 
+  const canMessage = app !== null && app.currentStage !== "INBOX";
+
   const messages = trpc.messages.list.useQuery(
     { applicationId: app?.id ?? "" },
-    { enabled: app !== null },
+    { enabled: canMessage },
   );
   const markRead = trpc.messages.markRead.useMutation();
   const send = trpc.messages.send.useMutation({
@@ -39,14 +41,14 @@ export function MessagesDialog({
   });
 
   useEffect(() => {
-    if (app && messages.data?.length) markRead.mutate({ applicationId: app.id });
+    if (canMessage && app && messages.data?.length) markRead.mutate({ applicationId: app.id });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [app?.id, messages.data?.length]);
+  }, [app?.id, canMessage, messages.data?.length]);
 
   trpc.messages.onMessage.useSubscription(
     { applicationId: app?.id ?? "" },
     {
-      enabled: app !== null,
+      enabled: canMessage,
       onData: () => utils.messages.list.invalidate({ applicationId: app?.id ?? "" }),
     },
   );
@@ -64,41 +66,49 @@ export function MessagesDialog({
           <DialogDescription>Visible to your whole workspace and the candidate.</DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-64 space-y-2 overflow-y-auto">
-          {messages.data?.length ? (
-            messages.data.map((m) => (
-              <p
-                key={m.id}
-                className={cn(
-                  "max-w-[80%] rounded-lg px-3 py-2 text-sm",
-                  m.senderId === session?.user.id
-                    ? "ml-auto bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground",
-                )}
-              >
-                {m.content}
-              </p>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">No messages yet.</p>
-          )}
-        </div>
+        {!canMessage ? (
+          <p className="text-sm text-muted-foreground">
+            Move this candidate out of Inbox to start messaging them.
+          </p>
+        ) : (
+          <>
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {messages.data?.length ? (
+                messages.data.map((m) => (
+                  <p
+                    key={m.id}
+                    className={cn(
+                      "max-w-[80%] rounded-lg px-3 py-2 text-sm",
+                      m.senderId === session?.user.id
+                        ? "ml-auto bg-primary text-primary-foreground"
+                        : "bg-muted text-foreground",
+                    )}
+                  >
+                    {m.content}
+                  </p>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No messages yet.</p>
+              )}
+            </div>
 
-        <div className="flex gap-2">
-          <Textarea
-            placeholder="Write a message…"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={2}
-            className="flex-1"
-          />
-          <Button
-            disabled={!draft || send.isPending}
-            onClick={() => app && send.mutate({ applicationId: app.id, content: draft })}
-          >
-            Send
-          </Button>
-        </div>
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Write a message…"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={2}
+                className="flex-1"
+              />
+              <Button
+                disabled={!draft || send.isPending}
+                onClick={() => app && send.mutate({ applicationId: app.id, content: draft })}
+              >
+                Send
+              </Button>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

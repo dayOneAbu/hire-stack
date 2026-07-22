@@ -16,13 +16,19 @@ async function assertCanAccessApplication(
   });
 
   const staff = await prisma.employerStaff.findUnique({ where: { userId } });
-  if (staff && staff.workspaceId === application.jobPost.workspaceId) {
-    return application;
+  const isStaff = staff && staff.workspaceId === application.jobPost.workspaceId;
+  const isCandidate = application.candidate.userId === userId;
+  if (!isStaff && !isCandidate) {
+    throw new TRPCError({ code: "FORBIDDEN" });
   }
-  if (application.candidate.userId === userId) {
-    return application;
+
+  // Messaging only opens once the employer has moved the candidate past the initial
+  // application stage — an untouched INBOX application has nothing to discuss yet.
+  if (application.currentStage === "INBOX") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Messaging opens once the employer moves this application forward." });
   }
-  throw new TRPCError({ code: "FORBIDDEN" });
+
+  return application;
 }
 
 export const messagesRouter = router({

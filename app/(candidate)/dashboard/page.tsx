@@ -301,6 +301,7 @@ function MyApplications() {
                 </Link>
                 <Badge variant="secondary">{app.currentStage}</Badge>
               </CardTitle>
+              <p className="line-clamp-1 text-xs font-medium text-muted-foreground">{app.jobPost.workspace.name}</p>
               <CardDescription className="line-clamp-2 min-h-10">{app.jobPost.description}</CardDescription>
             </CardHeader>
             <CardFooter className="justify-end">
