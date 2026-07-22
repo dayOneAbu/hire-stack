@@ -18,7 +18,7 @@ const ROUTE_ROLES: Record<string, string[]> = {
 function homeFor(role: string | undefined): string {
   if (role === "EMPLOYER_OWNER" || role === "EMPLOYER_RECRUITER") return "/jobs";
   if (role === "SUPER_ADMIN" || role === "PLATFORM_OPERATOR") return "/review-queue";
-  return "/onboarding";
+  return "/dashboard";
 }
 
 export async function proxy(request: NextRequest) {

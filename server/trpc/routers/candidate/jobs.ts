@@ -50,6 +50,31 @@ export const jobsRouter = router({
       .filter((r): r is NonNullable<typeof r> => r !== null);
   }),
 
+  byId: candidateProcedure
+    .input(z.object({ jobPostId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const candidateId = await getCandidateId(ctx.prisma, ctx.session.user.id);
+      const jobPost = await ctx.prisma.jobPost.findUniqueOrThrow({
+        where: { id: input.jobPostId },
+        include: {
+          workspace: true,
+          industry: true,
+          requiredSoftware: { include: { software: true } },
+          requiredSkills: { include: { skill: true } },
+        },
+      });
+      const [overallScore, saved, application] = await Promise.all([
+        computeMatchScore(candidateId, jobPost.id),
+        ctx.prisma.savedJob.findUnique({
+          where: { candidateId_jobPostId: { candidateId, jobPostId: jobPost.id } },
+        }),
+        ctx.prisma.jobApplication.findUnique({
+          where: { jobPostId_candidateId: { jobPostId: jobPost.id, candidateId } },
+        }),
+      ]);
+      return { jobPost, overallScore, isSaved: !!saved, application };
+    }),
+
   applyToJob: candidateProcedure
     .input(z.object({ jobPostId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {

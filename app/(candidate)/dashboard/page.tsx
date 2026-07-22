@@ -34,7 +34,9 @@ function JobCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
-          <span className="line-clamp-1">{jobPost.title}</span>
+          <Link href={`/listings/${jobPost.id}`} className="line-clamp-1 hover:underline">
+            {jobPost.title}
+          </Link>
           {badge}
         </CardTitle>
         <CardDescription className="line-clamp-2 min-h-10">{jobPost.description}</CardDescription>
@@ -357,7 +359,7 @@ function MyApplications() {
               ) : (
                 <Link
                   href={`/applications/${app.id}`}
-                  className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                  className="line-clamp-1 ml-auto text-xs text-muted-foreground underline-offset-4 hover:underline"
                 >
                   Message the employer to withdraw
                 </Link>
