@@ -13,10 +13,50 @@ import { useState } from "react";
 import { getSafeErrorMessage } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
+type JobPostSummary = { id: string; title: string; description: string };
+
+function JobCard({
+  jobPost,
+  badge,
+  isSaved,
+  onToggleSave,
+  saveMutating,
+  footer,
+}: {
+  jobPost: JobPostSummary;
+  badge?: React.ReactNode;
+  isSaved: boolean;
+  onToggleSave: () => void;
+  saveMutating: boolean;
+  footer: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2">
+          <span className="line-clamp-1">{jobPost.title}</span>
+          {badge}
+        </CardTitle>
+        <CardDescription className="line-clamp-2 min-h-10">{jobPost.description}</CardDescription>
+      </CardHeader>
+      <CardFooter className="justify-between">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={isSaved ? "Unsave" : "Save"}
+          disabled={saveMutating}
+          onClick={onToggleSave}
+        >
+          {isSaved ? <BookmarkCheck className="size-4" /> : <Bookmark className="size-4" />}
+        </Button>
+        {footer}
+      </CardFooter>
+    </Card>
+  );
+}
+
 function ProfileStatusCard() {
   const status = trpc.candidate.resume.status.useQuery();
-  // Resume parsing is still in flight (AI extraction pending) — the only state that's actually
-  // gated on parseStatus rather than the FRS §16 isSearchable/anomaly signal below.
   const isParsing = status.data?.parseStatus === "PENDING" || status.data?.parseStatus === "FAILED";
   const nextStep = trpc.candidate.wizard.getNextStep.useQuery(undefined, {
     enabled: !!status.data && !isParsing,
@@ -35,7 +75,9 @@ function ProfileStatusCard() {
     );
   }
 
-  if (isParsing || (nextStep.data && nextStep.data.totalPending > 0)) {
+  // FRS §16: drive the nag off isSearchable + open PENDING_CANDIDATE anomalies, not parseStatus —
+  // a manual-entry candidate (parseStatus: null) with resolved anomalies must not get stuck here.
+  if (!status.data!.isSearchable && (isParsing || (nextStep.data?.totalPending ?? 0) > 0)) {
     return (
       <Card className="border-dashed">
         <CardHeader>
@@ -132,46 +174,55 @@ function MatchedJobs() {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {matched.data.map(({ jobPost, overallScore }) => {
-        const isSaved = savedIds.has(jobPost.id);
-        return (
-          <Card key={jobPost.id}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between gap-2">
-                <span className="line-clamp-1">{jobPost.title}</span>
-                <Badge variant="secondary">{overallScore.overallMatchScore}% match</Badge>
-              </CardTitle>
-              <CardDescription className="line-clamp-2 min-h-10">{jobPost.description}</CardDescription>
-            </CardHeader>
-            <CardFooter className="justify-between">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={isSaved ? "Unsave" : "Save"}
-                onClick={() =>
-                  isSaved ? unsave.mutate({ jobPostId: jobPost.id }) : save.mutate({ jobPostId: jobPost.id })
-                }
-              >
-                {isSaved ? <BookmarkCheck className="size-4" /> : <Bookmark className="size-4" />}
-              </Button>
-              <Button
-                size="sm"
-                loading={apply.isPending}
-                loadingText="Applying…"
-                onClick={() => apply.mutate({ jobPostId: jobPost.id })}
-              >
-                Apply
-              </Button>
-            </CardFooter>
-          </Card>
-        );
-      })}
+      {matched.data.map(({ jobPost, overallScore }) => (
+        <JobCard
+          key={jobPost.id}
+          jobPost={jobPost}
+          badge={<Badge variant="secondary">{overallScore.overallMatchScore}% match</Badge>}
+          isSaved={savedIds.has(jobPost.id)}
+          saveMutating={save.isPending || unsave.isPending}
+          onToggleSave={() =>
+            savedIds.has(jobPost.id)
+              ? unsave.mutate({ jobPostId: jobPost.id })
+              : save.mutate({ jobPostId: jobPost.id })
+          }
+          footer={
+            <Button
+              size="sm"
+              loading={apply.isPending}
+              loadingText="Applying…"
+              onClick={() => apply.mutate({ jobPostId: jobPost.id })}
+            >
+              Apply
+            </Button>
+          }
+        />
+      ))}
     </div>
   );
 }
 
 function RecommendedJobs() {
   const recommended = trpc.candidate.jobs.recommended.useQuery();
+  const saved = trpc.candidate.jobs.savedList.useQuery();
+  const utils = trpc.useUtils();
+  const savedIds = new Set((saved.data ?? []).map((j) => j.id));
+
+  const apply = trpc.candidate.jobs.applyToJob.useMutation({
+    onSuccess: () => {
+      toast.success("Applied");
+      utils.candidate.jobs.myApplications.invalidate();
+    },
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
+  });
+  const save = trpc.candidate.jobs.save.useMutation({
+    onSuccess: () => utils.candidate.jobs.savedList.invalidate(),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
+  });
+  const unsave = trpc.candidate.jobs.unsave.useMutation({
+    onSuccess: () => utils.candidate.jobs.savedList.invalidate(),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
+  });
 
   if (recommended.isLoading) {
     return (
@@ -208,15 +259,28 @@ function RecommendedJobs() {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {recommended.data.map(({ jobPost, similarity }) => (
-        <Card key={jobPost.id}>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-2">
-              <span className="line-clamp-1">{jobPost.title}</span>
-              <Badge variant="secondary">{Math.round(similarity * 100)}% fit</Badge>
-            </CardTitle>
-            <CardDescription className="line-clamp-2 min-h-10">{jobPost.description}</CardDescription>
-          </CardHeader>
-        </Card>
+        <JobCard
+          key={jobPost.id}
+          jobPost={jobPost}
+          badge={<Badge variant="secondary">{Math.round(similarity * 100)}% fit</Badge>}
+          isSaved={savedIds.has(jobPost.id)}
+          saveMutating={save.isPending || unsave.isPending}
+          onToggleSave={() =>
+            savedIds.has(jobPost.id)
+              ? unsave.mutate({ jobPostId: jobPost.id })
+              : save.mutate({ jobPostId: jobPost.id })
+          }
+          footer={
+            <Button
+              size="sm"
+              loading={apply.isPending}
+              loadingText="Applying…"
+              onClick={() => apply.mutate({ jobPostId: jobPost.id })}
+            >
+              Apply
+            </Button>
+          }
+        />
       ))}
     </div>
   );
@@ -266,33 +330,40 @@ function MyApplications() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="grid gap-4 sm:grid-cols-2">
       {applications.data.map((app) => {
         const canWithdraw = app.currentStage === "INBOX" && app.source === "CANDIDATE_APPLIED";
         return (
-          <div
-            key={app.id}
-            className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted"
-          >
-            <Link href={`/applications/${app.id}`} className="flex flex-1 items-center justify-between">
-              <span className="text-sm font-medium">{app.jobPost.title}</span>
-              <Badge variant="secondary" className="mr-2">
-                {app.currentStage}
-              </Badge>
-            </Link>
-            {canWithdraw ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={withdraw.isPending}
-                onClick={() => setWithdrawTarget({ id: app.id, title: app.jobPost.title })}
-              >
-                Withdraw
-              </Button>
-            ) : (
-              <span className="ml-2 shrink-0 text-xs text-muted-foreground">Contact the employer to withdraw</span>
-            )}
-          </div>
+          <Card key={app.id}>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between gap-2">
+                <Link href={`/applications/${app.id}`} className="line-clamp-1 hover:underline">
+                  {app.jobPost.title}
+                </Link>
+                <Badge variant="secondary">{app.currentStage}</Badge>
+              </CardTitle>
+              <CardDescription className="line-clamp-2 min-h-10">{app.jobPost.description}</CardDescription>
+            </CardHeader>
+            <CardFooter className="justify-end">
+              {canWithdraw ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={withdraw.isPending}
+                  onClick={() => setWithdrawTarget({ id: app.id, title: app.jobPost.title })}
+                >
+                  Withdraw
+                </Button>
+              ) : (
+                <Link
+                  href={`/applications/${app.id}`}
+                  className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  Message the employer to withdraw
+                </Link>
+              )}
+            </CardFooter>
+          </Card>
         );
       })}
 
@@ -311,6 +382,19 @@ function MyApplications() {
 
 function SavedJobs() {
   const saved = trpc.candidate.jobs.savedList.useQuery();
+  const utils = trpc.useUtils();
+
+  const apply = trpc.candidate.jobs.applyToJob.useMutation({
+    onSuccess: () => {
+      toast.success("Applied");
+      utils.candidate.jobs.myApplications.invalidate();
+    },
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
+  });
+  const unsave = trpc.candidate.jobs.unsave.useMutation({
+    onSuccess: () => utils.candidate.jobs.savedList.invalidate(),
+    onError: (e) => toast.error(getSafeErrorMessage(e)),
+  });
 
   if (saved.isLoading) {
     return (
@@ -343,11 +427,25 @@ function SavedJobs() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="grid gap-4 sm:grid-cols-2">
       {saved.data.map((jobPost) => (
-        <div key={jobPost.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-          <span className="text-sm font-medium">{jobPost.title}</span>
-        </div>
+        <JobCard
+          key={jobPost.id}
+          jobPost={jobPost}
+          isSaved
+          saveMutating={unsave.isPending}
+          onToggleSave={() => unsave.mutate({ jobPostId: jobPost.id })}
+          footer={
+            <Button
+              size="sm"
+              loading={apply.isPending}
+              loadingText="Applying…"
+              onClick={() => apply.mutate({ jobPostId: jobPost.id })}
+            >
+              Apply
+            </Button>
+          }
+        />
       ))}
     </div>
   );

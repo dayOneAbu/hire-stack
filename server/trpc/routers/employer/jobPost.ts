@@ -80,7 +80,7 @@ export const jobPostRouter = router({
       const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
       const { id, requiredSoftware, requiredSkills, ...data } = input;
 
-      return ctx.prisma.$transaction(async (tx) => {
+      const jobPost = await ctx.prisma.$transaction(async (tx) => {
         if (requiredSoftware) {
           await tx.jobRequiredSoftware.deleteMany({ where: { jobPostId: id } });
         }
@@ -97,6 +97,11 @@ export const jobPostRouter = router({
           include: { requiredSoftware: true, requiredSkills: true },
         });
       });
+
+      if (data.title !== undefined || data.description !== undefined) {
+        await refreshJobPostEmbedding(jobPost.id);
+      }
+      return jobPost;
     }),
 
   activate: employerProcedure

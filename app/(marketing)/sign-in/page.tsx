@@ -54,7 +54,7 @@ export default function SignInPage() {
     } else if (role === "SUPER_ADMIN" || role === "PLATFORM_OPERATOR") {
       router.push("/review-queue");
     } else {
-      router.push("/onboarding");
+      router.push("/dashboard");
     }
   }
 

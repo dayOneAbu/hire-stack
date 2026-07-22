@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router, candidateProcedure } from "@/server/trpc/trpc";
 import { runAnomalyRules } from "@/server/services/anomalyRules";
 import { recomputeIsSearchable } from "@/server/services/publishGate";
+import { refreshCandidateChunks } from "@/server/services/embeddings";
 
 const periodInput = z.object({
   companyName: z.string().min(1),
@@ -37,6 +38,7 @@ export const employmentPeriodRouter = router({
     });
     await rerunAnomaliesFor(ctx.prisma, candidate.id);
     await recomputeIsSearchable(candidate.id);
+    await refreshCandidateChunks(candidate.id);
     return period;
   }),
 
@@ -53,6 +55,7 @@ export const employmentPeriodRouter = router({
       });
       await rerunAnomaliesFor(ctx.prisma, candidate.id);
       await recomputeIsSearchable(candidate.id);
+      await refreshCandidateChunks(candidate.id);
       return period;
     }),
 
@@ -63,6 +66,7 @@ export const employmentPeriodRouter = router({
     await ctx.prisma.employmentPeriod.delete({ where: { id: input.id, candidateId: candidate.id } });
     await rerunAnomaliesFor(ctx.prisma, candidate.id);
     await recomputeIsSearchable(candidate.id);
+    await refreshCandidateChunks(candidate.id);
   }),
 
   list: candidateProcedure.query(async ({ ctx }) => {

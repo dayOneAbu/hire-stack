@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { router, candidateProcedure } from "@/server/trpc/trpc";
+import { refreshCandidateChunks } from "@/server/services/embeddings";
 
 const PROFICIENCY = ["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const;
 
@@ -34,6 +35,7 @@ export const softwareRouter = router({
         await ctx.prisma.candidateSoftware.deleteMany({
           where: { candidateId: candidate.id, softwareId: input.softwareId },
         });
+        await refreshCandidateChunks(candidate.id);
         return;
       }
 
@@ -52,12 +54,14 @@ export const softwareRouter = router({
           isCurrentlyUsed: input.isCurrentlyUsed,
         },
       });
+      await refreshCandidateChunks(candidate.id);
     }),
 
   completeOnboarding: candidateProcedure.mutation(async ({ ctx }) => {
-    await ctx.prisma.candidate.update({
+    const candidate = await ctx.prisma.candidate.update({
       where: { userId: ctx.session.user.id },
       data: { onboardingCompletedAt: new Date() },
     });
+    await refreshCandidateChunks(candidate.id);
   }),
 });

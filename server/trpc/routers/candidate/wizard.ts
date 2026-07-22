@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { router, candidateProcedure } from "@/server/trpc/trpc";
 import { recomputeIsSearchable } from "@/server/services/publishGate";
 import { runAnomalyRules } from "@/server/services/anomalyRules";
-import { refreshAnomalyEmbedding } from "@/server/services/embeddings";
+import { refreshAnomalyEmbedding, refreshCandidateChunks } from "@/server/services/embeddings";
 
 const EMPLOYMENT_TYPE_MAP = {
   ONE_EMPLOYER: "EMPLOYEE",
@@ -118,6 +118,7 @@ export const wizardRouter = router({
           data: { status: "RESOLVED_BY_CANDIDATE" },
         });
         await refreshAnomalyEmbedding(anomaly.id);
+        await refreshCandidateChunks(candidateId);
       }
 
       const isSearchable = await recomputeIsSearchable(candidateId);
@@ -206,6 +207,7 @@ export const wizardRouter = router({
             data: { description: input.correction },
           });
         }
+        await refreshCandidateChunks(candidateId);
       }
 
       await ctx.prisma.employmentAnomaly.update({

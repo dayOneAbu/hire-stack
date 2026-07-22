@@ -112,7 +112,7 @@ export const jobsRouter = router({
       if (!canWithdraw(application)) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "The employer has already engaged with this application — contact them directly to withdraw.",
+          message: "The employer has already engaged with this application — message them to withdraw.",
         });
       }
       await ctx.prisma.jobApplication.delete({ where: { id: input.applicationId } });

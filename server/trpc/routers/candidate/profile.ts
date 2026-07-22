@@ -26,6 +26,12 @@ export const profileRouter = router({
         where: { userId: ctx.session.user.id },
         data: input,
       });
+      if (input.firstName !== undefined || input.lastName !== undefined) {
+        await ctx.prisma.user.update({
+          where: { id: ctx.session.user.id },
+          data: { name: `${candidate.firstName} ${candidate.lastName}` },
+        });
+      }
       if (
         input.bio !== undefined ||
         input.targetHourlyRateMin !== undefined ||
