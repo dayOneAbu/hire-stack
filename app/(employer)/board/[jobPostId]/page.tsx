@@ -72,7 +72,10 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
       if (ctx?.previous) utils.employer.board.list.setData({ jobPostId }, ctx.previous);
       toast.error(getSafeErrorMessage(e));
     },
-    onSettled: () => utils.employer.board.list.invalidate({ jobPostId }),
+    onSettled: () => {
+      utils.employer.board.list.invalidate({ jobPostId });
+      utils.employer.board.funnel.invalidate({ jobPostId });
+    },
   });
 
   const applications = useMemo(() => board.data ?? [], [board.data]);

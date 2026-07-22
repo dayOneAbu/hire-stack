@@ -6,10 +6,11 @@ import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MobileNav } from "@/components/mobile-nav";
-import { Briefcase, CreditCard, Gift, LifeBuoy, LogOut, Search, ShieldCheck, Users } from "lucide-react";
+import { Briefcase, CreditCard, Gift, LifeBuoy, LogOut, MessageCircle, Search, ShieldCheck, Users } from "lucide-react";
 
 const NAV = [
   { href: "/jobs", label: "Job posts", icon: Briefcase },
+  { href: "/messages", label: "Messages", icon: MessageCircle },
   { href: "/search", label: "Search candidates", icon: Search },
   { href: "/settings/billing", label: "Billing", icon: CreditCard },
   { href: "/settings/workspace", label: "Workspace", icon: Users },

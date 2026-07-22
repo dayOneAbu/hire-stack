@@ -15,28 +15,28 @@ import { LandingHeader } from "@/components/landing-header";
 const steps = [
   {
     icon: FileSearch,
-    title: "Upload & extract",
-    body: "A candidate uploads their resume. AI extraction turns it into structured fields — roles, tools, tenure — no manual data entry.",
+    title: "Upload a resume",
+    body: "Drop in a resume and AI reads it for you — pulling out roles, tools, and dates automatically. No forms to fill in by hand.",
   },
   {
     icon: ShieldCheck,
-    title: "Flag & resolve",
-    body: "Overlapping dates, gig-blended job history, and unverifiable tenure get flagged automatically. The candidate resolves it, or it goes to admin review.",
+    title: "Catch the sketchy parts",
+    body: "If dates overlap, or a job history looks patched together, the system flags it right away and asks the candidate to explain — instead of letting it slide through unnoticed.",
   },
   {
     icon: Wrench,
-    title: "Verify software fluency",
-    body: "Candidates confirm the specific tools they've actually used — not keyword-stuffed resumes. Employers search on real fluency, not guesses.",
+    title: "Confirm real skills",
+    body: "Candidates check off the actual tools they've used, so employers aren't just trusting a list of buzzwords on a resume.",
   },
   {
     icon: KanbanSquare,
-    title: "Search, shortlist, hire",
-    body: "Employers filter on structured, trustworthy data and move candidates through a free-form Kanban board — no rigid pipeline forcing your process.",
+    title: "Search and shortlist",
+    body: "Employers search on that cleaned-up, trustworthy data and drag candidates through a simple board — organized however makes sense for them, not a rigid pipeline.",
   },
   {
     icon: MessageSquare,
-    title: "Message & close",
-    body: "Built-in messaging and offers keep the whole hire — from first contact to signed offer — in one place.",
+    title: "Chat and hire",
+    body: "Messaging and offers live in the same place, so the whole conversation — from 'hey, interested?' to a signed offer — stays in one thread.",
   },
 ];
 
@@ -100,24 +100,25 @@ export default function LandingPage() {
         <div className="relative mx-auto max-w-4xl px-6 pt-24 pb-20 text-center">
           <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs font-medium text-muted-foreground">
             <ShieldCheck className="size-3.5 text-primary" />
-            Built for overseas VA recruiting in real estate
+            A demo project, built end-to-end to show how I think and build
           </div>
           <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
-            Hire virtual assistants whose resumes are actually{" "}
-            <span className="text-primary">true</span>.
+            A hiring platform that checks if a resume is telling the{" "}
+            <span className="text-primary">truth</span>.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-muted-foreground">
-            HireStack verifies and structures resume data before an employer ever sees it —
-            so search and filtering run on real employment history and confirmed tools,
-            not keyword-stuffed guesswork.
+            HireStack is a project I built to solve a real, specific problem: overseas hiring
+            for real estate virtual assistants, where resumes are easy to pad and hard to verify.
+            It's also my way of showing what I can build — from the product thinking down to
+            the code. Poke around, hire a fake VA, or just see how the pieces fit together.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link href="/sign-up?as=employer" className={cn(buttonVariants({ size: "lg" }), "group")}>
-              Hire a VA
+              Try it as an employer
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <Link href="/sign-up" className={cn(buttonVariants({ size: "lg", variant: "outline" }), "group")}>
-              Find VA work
+              Try it as a candidate
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
@@ -129,11 +130,11 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-6 py-24">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-              From resume to hire, in one verified pipeline
+              How it actually works, step by step
             </h2>
             <p className="mt-4 text-muted-foreground">
-              No separate "approve candidate" step. A profile becomes searchable the moment
-              every flagged inconsistency is resolved — nothing is toggled on by hand.
+              There's no admin who manually "approves" a candidate. A profile becomes
+              searchable on its own, the moment nothing about it looks off anymore.
             </p>
           </div>
 
@@ -162,11 +163,11 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-6 py-24">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-              Pricing that scales with how much you're hiring
+              How pricing would work, if this were live
             </h2>
             <p className="mt-4 text-muted-foreground">
-              Every tier includes full candidate search, the Kanban pipeline, and messaging.
-              The only thing that changes is how many roles you can run at once.
+              This is a demo, so no one's actually being charged — but the billing logic
+              (job slots, tiers, upgrades) is fully built. Here's what the plans look like.
             </p>
           </div>
 
@@ -215,15 +216,15 @@ export default function LandingPage() {
       <section className="border-t border-border/60 bg-secondary/30">
         <div className="mx-auto max-w-4xl px-6 py-24 text-center">
           <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-            Stop guessing whether a resume is telling the truth.
+            Curious how the whole thing fits together?
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Post your first job in minutes and search candidates whose employment history
-            has already been verified.
+            Sign up, post a fake job, upload a resume, and walk through the whole flow yourself.
+            It's the fastest way to see how it works — and what I built.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link href="/sign-up?as=employer" className={cn(buttonVariants({ size: "lg" }), "group")}>
-              Get started free
+              Try it now, free
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>

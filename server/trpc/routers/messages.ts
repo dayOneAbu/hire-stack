@@ -1,7 +1,7 @@
 import { on } from "node:events";
 import { z } from "zod";
 import { TRPCError, tracked } from "@trpc/server";
-import { router, protectedProcedure } from "@/server/trpc/trpc";
+import { router, protectedProcedure, employerProcedure } from "@/server/trpc/trpc";
 import { messageEvents, emitMessage, emitRead, emitTyping, type MessageEvent } from "@/server/services/messageEvents";
 
 async function assertCanAccessApplication(
@@ -31,6 +31,40 @@ async function assertCanAccessApplication(
 }
 
 export const messagesRouter = router({
+  // Cross-job inbox for the employer's own workspace — one row per application
+  // that has messages allowed (i.e. past INBOX), newest activity first.
+  listThreads: employerProcedure.query(async ({ ctx }) => {
+    const staff = await ctx.prisma.employerStaff.findUniqueOrThrow({
+      where: { userId: ctx.session.user.id },
+    });
+
+    const applications = await ctx.prisma.jobApplication.findMany({
+      where: {
+        jobPost: { workspaceId: staff.workspaceId },
+        currentStage: { not: "INBOX" },
+      },
+      include: {
+        candidate: { select: { id: true, firstName: true, lastName: true } },
+        jobPost: { select: { id: true, title: true } },
+        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+        _count: {
+          select: { messages: { where: { senderId: { not: ctx.session.user.id }, readAt: null } } },
+        },
+      },
+    });
+
+    return applications
+      .filter((a) => a.messages.length > 0)
+      .map((a) => ({
+        applicationId: a.id,
+        jobPost: a.jobPost,
+        candidate: a.candidate,
+        lastMessage: a.messages[0],
+        unreadCount: a._count.messages,
+      }))
+      .sort((a, b) => b.lastMessage.createdAt.getTime() - a.lastMessage.createdAt.getTime());
+  }),
+
   send: protectedProcedure
     .input(z.object({ applicationId: z.string().uuid(), content: z.string().trim().min(1) }))
     .mutation(async ({ ctx, input }) => {
