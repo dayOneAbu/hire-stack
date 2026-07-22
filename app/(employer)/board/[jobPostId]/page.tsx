@@ -2,6 +2,7 @@
 
 import { use, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -43,6 +44,7 @@ type Stage = (typeof STAGES)[number]["value"];
 
 export default function BoardPage({ params }: { params: Promise<{ jobPostId: string }> }) {
   const { jobPostId } = use(params);
+  const router = useRouter();
   const utils = trpc.useUtils();
   const jobPost = trpc.employer.jobPost.byId.useQuery({ id: jobPostId });
   const board = trpc.employer.board.list.useQuery({ jobPostId });
@@ -131,13 +133,14 @@ export default function BoardPage({ params }: { params: Promise<{ jobPostId: str
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border px-6 py-5">
-        <Link
-          href="/jobs"
+        <button
+          type="button"
+          onClick={() => router.back()}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-3.5" />
-          Job posts
-        </Link>
+          Back
+        </button>
         <h1 className="mt-2 text-xl font-semibold tracking-tight text-foreground">
           {jobPost.data?.title ?? "Hiring board"}
         </h1>

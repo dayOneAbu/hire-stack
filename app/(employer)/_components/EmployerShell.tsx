@@ -6,10 +6,12 @@ import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MobileNav } from "@/components/mobile-nav";
-import { Briefcase, CreditCard, Gift, LifeBuoy, LogOut, MessageCircle, Search, ShieldCheck, Users } from "lucide-react";
+import { Briefcase, CreditCard, Gift, KanbanSquare, LayoutDashboard, LifeBuoy, LogOut, MessageCircle, Search, ShieldCheck, Users } from "lucide-react";
 
 const NAV = [
+  { href: "/overview", label: "Dashboard", icon: LayoutDashboard },
   { href: "/jobs", label: "Job posts", icon: Briefcase },
+  { href: "/board", label: "Board", icon: KanbanSquare },
   { href: "/messages", label: "Messages", icon: MessageCircle },
   { href: "/search", label: "Search candidates", icon: Search },
   { href: "/settings/billing", label: "Billing", icon: CreditCard },

@@ -53,7 +53,7 @@ export default function SignUpPage() {
       return;
     }
     if (intent === "EMPLOYER") {
-      router.push("/jobs");
+      router.push("/overview");
       return;
     }
     const referrerId = searchParams.get("ref");

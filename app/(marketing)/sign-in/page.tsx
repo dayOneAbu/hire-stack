@@ -28,7 +28,7 @@ export default function SignInPage() {
     }
     const role = (data?.user as { role?: string } | undefined)?.role;
     if (role === "EMPLOYER_OWNER" || role === "EMPLOYER_RECRUITER") {
-      router.push("/jobs");
+      router.push("/overview");
     } else if (role === "SUPER_ADMIN" || role === "PLATFORM_OPERATOR") {
       router.push("/review-queue");
     } else {
@@ -50,7 +50,7 @@ export default function SignInPage() {
     }
     const role = (data?.user as { role?: string } | undefined)?.role;
     if (role === "EMPLOYER_OWNER" || role === "EMPLOYER_RECRUITER") {
-      router.push("/jobs");
+      router.push("/overview");
     } else if (role === "SUPER_ADMIN" || role === "PLATFORM_OPERATOR") {
       router.push("/review-queue");
     } else {

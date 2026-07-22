@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ListToolbar, ListPagination } from "@/components/ui/list-controls";
+import { DateRangeFilter, rangeToDates, type DateRangeKey } from "@/components/ui/date-range-filter";
 import { useListControls } from "@/lib/useListControls";
 import { toast } from "sonner";
 import { Archive, Briefcase, CalendarPlus, Copy, KanbanSquare, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
@@ -45,13 +46,17 @@ export default function JobsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<{ id: string; title: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(ALL_STATUSES);
+  const [range, setRange] = useState<DateRangeKey>("all");
   const jobs = trpc.employer.jobPost.list.useQuery();
   const utils = trpc.useUtils();
 
-  const filtered = useMemo(
-    () => (statusFilter === ALL_STATUSES ? (jobs.data ?? []) : (jobs.data ?? []).filter((j) => j.status === statusFilter)),
-    [jobs.data, statusFilter],
-  );
+  const filtered = useMemo(() => {
+    const { from } = rangeToDates(range);
+    return (jobs.data ?? []).filter(
+      (j) =>
+        (statusFilter === ALL_STATUSES || j.status === statusFilter) && (!from || new Date(j.createdAt) >= from),
+    );
+  }, [jobs.data, statusFilter, range]);
   const list = useListControls(filtered, (a, b, dir) => {
     const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     return dir === "desc" ? -diff : diff;
@@ -131,26 +136,29 @@ export default function JobsPage() {
           onSortDirChange={list.setSortDir}
           sortLabel="Created"
           right={
-            <Select
-              items={[
-                { value: ALL_STATUSES, label: "All statuses" },
-                ...Object.keys(STATUS_TONE).map((s) => ({ value: s, label: s })),
-              ]}
-              value={statusFilter}
-              onValueChange={(v) => setStatusFilter(v ?? ALL_STATUSES)}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_STATUSES}>All statuses</SelectItem>
-                {Object.keys(STATUS_TONE).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <>
+              <DateRangeFilter value={range} onChange={setRange} />
+              <Select
+                items={[
+                  { value: ALL_STATUSES, label: "All statuses" },
+                  ...Object.keys(STATUS_TONE).map((s) => ({ value: s, label: s })),
+                ]}
+                value={statusFilter}
+                onValueChange={(v) => setStatusFilter(v ?? ALL_STATUSES)}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_STATUSES}>All statuses</SelectItem>
+                  {Object.keys(STATUS_TONE).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
           }
         />
       )}
