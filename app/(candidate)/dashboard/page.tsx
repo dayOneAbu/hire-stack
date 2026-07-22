@@ -8,54 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Bookmark, BookmarkCheck, CheckCircle2, Clock, Inbox, Search, Sparkles } from "lucide-react";
+import { Bookmark, CheckCircle2, Clock, Inbox, Search, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { getSafeErrorMessage } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-
-type JobPostSummary = { id: string; title: string; description: string };
-
-function JobCard({
-  jobPost,
-  badge,
-  isSaved,
-  onToggleSave,
-  saveMutating,
-  footer,
-}: {
-  jobPost: JobPostSummary;
-  badge?: React.ReactNode;
-  isSaved: boolean;
-  onToggleSave: () => void;
-  saveMutating: boolean;
-  footer: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-2">
-          <Link href={`/listings/${jobPost.id}`} className="line-clamp-1 hover:underline">
-            {jobPost.title}
-          </Link>
-          {badge}
-        </CardTitle>
-        <CardDescription className="line-clamp-2 min-h-10">{jobPost.description}</CardDescription>
-      </CardHeader>
-      <CardFooter className="justify-between">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={isSaved ? "Unsave" : "Save"}
-          disabled={saveMutating}
-          onClick={onToggleSave}
-        >
-          {isSaved ? <BookmarkCheck className="size-4" /> : <Bookmark className="size-4" />}
-        </Button>
-        {footer}
-      </CardFooter>
-    </Card>
-  );
-}
+import { JobCard } from "../_components/job-card";
 
 function ProfileStatusCard() {
   const status = trpc.candidate.resume.status.useQuery();

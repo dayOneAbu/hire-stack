@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { buttonVariants } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 function dashboardHref(role: string | undefined) {
@@ -28,6 +29,7 @@ export function LandingHeader() {
           <a href="#pricing" className="hover:text-foreground">Pricing</a>
         </nav>
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           {session ? (
             <Link href={dashboardHref(role)} className={cn(buttonVariants({ size: "sm" }))}>
               Dashboard

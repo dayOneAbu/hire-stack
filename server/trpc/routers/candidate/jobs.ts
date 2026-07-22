@@ -75,6 +75,53 @@ export const jobsRouter = router({
       return { jobPost, overallScore, isSaved: !!saved, application };
     }),
 
+  similarByJob: candidateProcedure
+    .input(z.object({ jobPostId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [row] = await ctx.prisma.$queryRaw<Array<{ embedding: string | null }>>`
+        SELECT embedding::text AS embedding FROM "JobPostEmbedding" WHERE "jobPostId" = ${input.jobPostId}::uuid
+      `;
+      if (!row?.embedding) return [];
+      const embedding = row.embedding.slice(1, -1).split(",").map(Number);
+
+      const matches = await searchJobPosts(embedding, 7);
+      const jobPosts = await ctx.prisma.jobPost.findMany({
+        where: {
+          id: { in: matches.map((m) => m.jobPostId).filter((id) => id !== input.jobPostId) },
+          status: "ACTIVE",
+          ...notCanceledWorkspace,
+        },
+      });
+      const byId = new Map(jobPosts.map((j) => [j.id, j]));
+
+      return matches
+        .map((m) => {
+          const jobPost = byId.get(m.jobPostId);
+          return jobPost ? { jobPost, similarity: m.similarity } : null;
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null)
+        .slice(0, 6);
+    }),
+
+  byWorkspace: candidateProcedure
+    .input(z.object({ jobPostId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const current = await ctx.prisma.jobPost.findUniqueOrThrow({
+        where: { id: input.jobPostId },
+        select: { workspaceId: true },
+      });
+      return ctx.prisma.jobPost.findMany({
+        where: {
+          workspaceId: current.workspaceId,
+          id: { not: input.jobPostId },
+          status: "ACTIVE",
+          ...notCanceledWorkspace,
+        },
+        orderBy: { activatedAt: "desc" },
+        take: 6,
+      });
+    }),
+
   applyToJob: candidateProcedure
     .input(z.object({ jobPostId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
