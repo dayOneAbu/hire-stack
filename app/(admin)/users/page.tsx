@@ -13,23 +13,47 @@ import { getSafeErrorMessage } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ListPagination } from "@/components/ui/list-controls";
 import { ArrowDownAZ, ArrowUpAZ } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const PAGE_SIZE = Number(process.env.NEXT_PUBLIC_PAGE_SIZE_USERS ?? 25);
+const ALL = "all";
+
+const ROLE_LABELS: Record<
+  "SUPER_ADMIN" | "PLATFORM_OPERATOR" | "EMPLOYER_OWNER" | "EMPLOYER_RECRUITER" | "CANDIDATE",
+  string
+> = {
+  SUPER_ADMIN: "Super admin",
+  PLATFORM_OPERATOR: "Platform operator",
+  EMPLOYER_OWNER: "Employer owner",
+  EMPLOYER_RECRUITER: "Employer recruiter",
+  CANDIDATE: "Candidate",
+};
 
 export default function UsersPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [role, setRole] = useState<string>(ALL);
+  const [status, setStatus] = useState<string>(ALL);
+  const [candidateSearchable, setCandidateSearchable] = useState<string>(ALL);
+  const [employerApproval, setEmployerApproval] = useState<string>(ALL);
   const [suspendTarget, setSuspendTarget] = useState<{ id: string; label: string } | null>(null);
   const utils = trpc.useUtils();
-  const results = trpc.admin.users.search.useQuery(
-    { query, page, sortDir },
-    { enabled: query.length > 0 },
-  );
+  const stats = trpc.admin.users.stats.useQuery();
+  const results = trpc.admin.users.search.useQuery({
+    query,
+    page,
+    sortDir,
+    role: role === ALL ? undefined : (role as keyof typeof ROLE_LABELS),
+    status: status === ALL ? undefined : (status as "active" | "suspended" | "unverified"),
+    candidateSearchable: candidateSearchable === ALL ? undefined : (candidateSearchable as "yes" | "no"),
+    employerApproval: employerApproval === ALL ? undefined : (employerApproval as "approved" | "pending"),
+  });
   const suspend = trpc.admin.users.suspend.useMutation({
     onSuccess: () => {
       toast.success("User suspended");
       utils.admin.users.search.invalidate();
+      utils.admin.users.stats.invalidate();
       setSuspendTarget(null);
     },
     onError: (e) => toast.error(getSafeErrorMessage(e)),
@@ -38,17 +62,34 @@ export default function UsersPage() {
     onSuccess: () => {
       toast.success("User reinstated");
       utils.admin.users.search.invalidate();
+      utils.admin.users.stats.invalidate();
     },
     onError: (e) => toast.error(getSafeErrorMessage(e)),
   });
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 p-6 py-10">
+    <div className="mx-auto w-full max-w-4xl space-y-6 p-6 py-10">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Users</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Read-only lookup by name or email. No bulk actions.
         </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.isLoading &&
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-18.5 w-full" />)}
+        {stats.data && (
+          <>
+            <StatCard label="Total users" value={stats.data.total} />
+            <StatCard label="Candidates" value={stats.data.candidates} />
+            <StatCard label="Employer staff" value={stats.data.employers} />
+            <StatCard label="Active jobs" value={stats.data.activeJobs} />
+            <StatCard label="Searchable candidates" value={stats.data.searchableCandidates} />
+            <StatCard label="Pending employer approval" value={stats.data.pendingEmployers} />
+            <StatCard label="Suspended" value={stats.data.suspended} />
+          </>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -75,6 +116,70 @@ export default function UsersPage() {
           {sortDir === "desc" ? <ArrowDownAZ className="size-3.5" /> : <ArrowUpAZ className="size-3.5" />}
           Joined: {sortDir === "desc" ? "Newest" : "Oldest"}
         </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Select
+          value={role}
+          onValueChange={(v) => {
+            setRole(v ?? ALL);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-44"><SelectValue placeholder="Role" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All roles</SelectItem>
+            {Object.entries(ROLE_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setStatus(v ?? ALL);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="suspended">Suspended</SelectItem>
+            <SelectItem value="unverified">Unverified email</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={candidateSearchable}
+          onValueChange={(v) => {
+            setCandidateSearchable(v ?? ALL);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-52"><SelectValue placeholder="Candidate searchable" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Any searchability</SelectItem>
+            <SelectItem value="yes">Searchable</SelectItem>
+            <SelectItem value="no">Not searchable</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={employerApproval}
+          onValueChange={(v) => {
+            setEmployerApproval(v ?? ALL);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-48"><SelectValue placeholder="Employer approval" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Any approval state</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="pending">Pending approval</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-3">
@@ -169,5 +274,16 @@ export default function UsersPage() {
         onConfirm={() => suspendTarget && suspend.mutate({ userId: suspendTarget.id })}
       />
     </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <Card size="sm">
+      <CardContent className="space-y-1">
+        <p className="text-2xl font-semibold tabular-nums text-foreground">{value}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
+      </CardContent>
+    </Card>
   );
 }

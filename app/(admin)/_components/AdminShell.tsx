@@ -6,10 +6,11 @@ import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MobileNav } from "@/components/mobile-nav";
-import { LifeBuoy, LogOut, PackageSearch, ScrollText, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { Building2, LifeBuoy, LogOut, PackageSearch, ScrollText, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 
 const NAV = [
   { href: "/software-queue", label: "Software queue", icon: PackageSearch },
+  { href: "/industry-queue", label: "Industry queue", icon: Building2 },
   { href: "/review-queue", label: "Review queue", icon: ShieldAlert },
   { href: "/users", label: "Users", icon: Users },
   { href: "/audit-trail", label: "Audit trail", icon: ScrollText },

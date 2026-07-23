@@ -10,6 +10,13 @@ import { getSafeErrorMessage } from "@/lib/utils";
 import { ListToolbar, ListPagination } from "@/components/ui/list-controls";
 import { useListControls } from "@/lib/useListControls";
 
+function timeAgo(date: string | Date) {
+  const days = Math.floor((Date.now() - new Date(date).getTime()) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
+}
+
 function SimilarAnomalies({ anomalyId }: { anomalyId: string }) {
   const similar = trpc.admin.reviewQueue.similarAnomalies.useQuery({ anomalyId });
 
@@ -86,10 +93,13 @@ export default function ReviewQueuePage() {
         {list.pageItems.map((a) => (
           <Card key={a.id}>
             <CardHeader>
-              <CardTitle className="text-base">
-                {a.employmentPeriod.candidate.firstName} {a.employmentPeriod.candidate.lastName} —{" "}
-                {a.ruleType}
-              </CardTitle>
+              <div className="flex items-start justify-between gap-3">
+                <CardTitle className="text-base">
+                  {a.employmentPeriod.candidate.firstName} {a.employmentPeriod.candidate.lastName} —{" "}
+                  {a.ruleType}
+                </CardTitle>
+                <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(a.createdAt)}</span>
+              </div>
               <CardDescription>{a.systemNote}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-start gap-3">

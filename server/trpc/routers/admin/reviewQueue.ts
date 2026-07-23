@@ -29,11 +29,20 @@ export const reviewQueueRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const anomaly = await ctx.prisma.employmentAnomaly.update({
-        where: { id: input.anomalyId },
-        data: { status: input.status, resolvedAt: new Date() },
-        include: { employmentPeriod: true },
-      });
+      const [anomaly] = await ctx.prisma.$transaction([
+        ctx.prisma.employmentAnomaly.update({
+          where: { id: input.anomalyId },
+          data: { status: input.status, resolvedAt: new Date() },
+          include: { employmentPeriod: true },
+        }),
+        ctx.prisma.auditTrail.create({
+          data: {
+            action: "ANOMALY_RESOLVED",
+            userId: ctx.session.user.id,
+            payload: { anomalyId: input.anomalyId, status: input.status },
+          },
+        }),
+      ]);
       await refreshAnomalyEmbedding(anomaly.id);
       const isSearchable = await recomputeIsSearchable(anomaly.employmentPeriod.candidateId);
       return { anomaly, isSearchable };

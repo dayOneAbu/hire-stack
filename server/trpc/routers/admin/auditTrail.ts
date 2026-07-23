@@ -18,6 +18,9 @@ export const auditTrailRouter = router({
             "JOB_SLOT_EXCEEDED",
             "CANDIDATE_STAGE_TRANSITION",
             "TAXONOMY_MERGED",
+            "ANOMALY_RESOLVED",
+            "SOFTWARE_APPROVED",
+            "INDUSTRY_APPROVED",
           ])
           .optional(),
         page: z.number().int().positive().default(1),

@@ -1,50 +1,49 @@
 import { z } from "zod";
 import { router, adminProcedure } from "@/server/trpc/trpc";
 
-export const softwareQueueRouter = router({
+export const industryQueueRouter = router({
   list: adminProcedure.query(({ ctx }) =>
-    ctx.prisma.software.findMany({
+    ctx.prisma.industry.findMany({
       where: { status: "SUGGESTED_BY_AI" },
-      include: { industry: true },
       orderBy: { createdAt: "asc" },
     }),
   ),
 
   approve: adminProcedure
-    .input(z.object({ softwareId: z.string().uuid() }))
+    .input(z.object({ industryId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const [software] = await ctx.prisma.$transaction([
-        ctx.prisma.software.update({
-          where: { id: input.softwareId },
+      const [industry] = await ctx.prisma.$transaction([
+        ctx.prisma.industry.update({
+          where: { id: input.industryId },
           data: { status: "APPROVED_GLOBAL" },
         }),
         ctx.prisma.auditTrail.create({
           data: {
-            action: "SOFTWARE_APPROVED",
+            action: "INDUSTRY_APPROVED",
             userId: ctx.session.user.id,
-            payload: { softwareId: input.softwareId },
+            payload: { industryId: input.industryId },
           },
         }),
       ]);
-      return software;
+      return industry;
     }),
 
   merge: adminProcedure
-    .input(z.object({ softwareId: z.string().uuid(), intoId: z.string().uuid() }))
+    .input(z.object({ industryId: z.string().uuid(), intoId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const [software] = await ctx.prisma.$transaction([
-        ctx.prisma.software.update({
-          where: { id: input.softwareId },
+      const [industry] = await ctx.prisma.$transaction([
+        ctx.prisma.industry.update({
+          where: { id: input.industryId },
           data: { status: "MERGED", mergedIntoId: input.intoId },
         }),
         ctx.prisma.auditTrail.create({
           data: {
             action: "TAXONOMY_MERGED",
             userId: ctx.session.user.id,
-            payload: { softwareId: input.softwareId, intoId: input.intoId },
+            payload: { industryId: input.industryId, intoId: input.intoId },
           },
         }),
       ]);
-      return software;
+      return industry;
     }),
 });
