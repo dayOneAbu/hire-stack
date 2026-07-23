@@ -6,7 +6,7 @@ import { trpc } from "@/lib/trpc/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DateRangeFilter, rangeToDates, type DateRangeKey } from "@/components/ui/date-range-filter";
-import { ListPagination } from "@/components/ui/list-controls";
+import { ListToolbar, ListPagination } from "@/components/ui/list-controls";
 import { useListControls } from "@/lib/useListControls";
 import { Briefcase, KanbanSquare, Users, Calendar, FileCheck, Plus } from "lucide-react";
 
@@ -34,6 +34,16 @@ export default function DashboardPage() {
     const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     return dir === "desc" ? -diff : diff;
   });
+  const [boardsSearch, setBoardsSearch] = useState("");
+  const boardsList = useListControls(
+    (summary.data?.activePipelineJobs ?? []).filter((j) =>
+      j.title.toLowerCase().includes(boardsSearch.trim().toLowerCase()),
+    ),
+    (a, b, dir) => {
+      const diff = a.title.localeCompare(b.title);
+      return dir === "desc" ? -diff : diff;
+    },
+  );
 
   if (summary.isLoading) {
     return (
@@ -157,20 +167,45 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-base">Active boards</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1">
+          <CardContent className="space-y-3">
             {activePipelineJobs.length === 0 ? (
               <p className="text-sm text-muted-foreground">No active job posts.</p>
             ) : (
-              activePipelineJobs.map((job) => (
-                <Link
-                  key={job.id}
-                  href={`/board/${job.id}`}
-                  className="flex items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-accent"
-                >
-                  <span className="truncate text-foreground">{job.title}</span>
-                  <KanbanSquare className="size-4 shrink-0 text-muted-foreground" />
-                </Link>
-              ))
+              <>
+                {activePipelineJobs.length > 5 && (
+                  <ListToolbar
+                    search={boardsSearch}
+                    onSearchChange={(v) => {
+                      setBoardsSearch(v);
+                      boardsList.setPage(1);
+                    }}
+                    searchPlaceholder="Search boards..."
+                    sortDir={boardsList.sortDir}
+                    onSortDirChange={boardsList.setSortDir}
+                    sortLabel="Title"
+                    descLabel="Z-A"
+                    ascLabel="A-Z"
+                  />
+                )}
+                <div className="space-y-1">
+                  {boardsList.pageItems.map((job) => (
+                    <Link
+                      key={job.id}
+                      href={`/board/${job.id}`}
+                      className="flex items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-accent"
+                    >
+                      <span className="truncate text-foreground">{job.title}</span>
+                      <KanbanSquare className="size-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  ))}
+                </div>
+                <ListPagination
+                  page={boardsList.page}
+                  totalPages={boardsList.totalPages}
+                  total={boardsList.total}
+                  onPageChange={boardsList.setPage}
+                />
+              </>
             )}
           </CardContent>
         </Card>

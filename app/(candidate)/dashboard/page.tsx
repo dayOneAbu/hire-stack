@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
+import type { RouterOutputs } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +10,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Bookmark, CheckCircle2, Clock, Inbox, Search, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { getSafeErrorMessage } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { JobCard } from "../_components/job-card";
+import { JobCard, type JobPostSummary } from "../_components/job-card";
+import { ListToolbar, ListPagination } from "@/components/ui/list-controls";
+import { useListControls } from "@/lib/useListControls";
+
+function useTitleSearch<T>(items: T[] | undefined, getTitle: (item: T) => string) {
+  const [search, setSearch] = useState("");
+  const filtered = useMemo(() => {
+    const list = items ?? [];
+    const q = search.trim().toLowerCase();
+    return q ? list.filter((i) => getTitle(i).toLowerCase().includes(q)) : list;
+  }, [items, search, getTitle]);
+  return { search, setSearch, filtered };
+}
 
 function ProfileStatusCard() {
   const status = trpc.candidate.resume.status.useQuery();
@@ -131,32 +144,67 @@ function MatchedJobs() {
     );
   }
 
+  return <MatchedJobsList data={matched.data} savedIds={savedIds} apply={apply} save={save} unsave={unsave} />;
+}
+
+function MatchedJobsList({
+  data,
+  savedIds,
+  apply,
+  save,
+  unsave,
+}: {
+  data: { jobPost: JobPostSummary; overallScore: { overallMatchScore: number } }[];
+  savedIds: Set<string>;
+  apply: ReturnType<typeof trpc.candidate.jobs.applyToJob.useMutation>;
+  save: ReturnType<typeof trpc.candidate.jobs.save.useMutation>;
+  unsave: ReturnType<typeof trpc.candidate.jobs.unsave.useMutation>;
+}) {
+  const { search, setSearch, filtered } = useTitleSearch(data, (r) => r.jobPost.title);
+  const list = useListControls(filtered, (a, b, dir) => {
+    const diff = a.overallScore.overallMatchScore - b.overallScore.overallMatchScore;
+    return dir === "desc" ? -diff : diff;
+  });
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {matched.data.map(({ jobPost, overallScore }) => (
-        <JobCard
-          key={jobPost.id}
-          jobPost={jobPost}
-          badge={<Badge variant="secondary">{overallScore.overallMatchScore}% match</Badge>}
-          isSaved={savedIds.has(jobPost.id)}
-          saveMutating={save.isPending || unsave.isPending}
-          onToggleSave={() =>
-            savedIds.has(jobPost.id)
-              ? unsave.mutate({ jobPostId: jobPost.id })
-              : save.mutate({ jobPostId: jobPost.id })
-          }
-          footer={
-            <Button
-              size="sm"
-              loading={apply.isPending}
-              loadingText="Applying…"
-              onClick={() => apply.mutate({ jobPostId: jobPost.id })}
-            >
-              Apply
-            </Button>
-          }
-        />
-      ))}
+    <div className="space-y-4">
+      <ListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search matched jobs..."
+        sortDir={list.sortDir}
+        onSortDirChange={list.setSortDir}
+        sortLabel="Match"
+        descLabel="Highest"
+        ascLabel="Lowest"
+      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {list.pageItems.map(({ jobPost, overallScore }) => (
+          <JobCard
+            key={jobPost.id}
+            jobPost={jobPost}
+            badge={<Badge variant="secondary">{overallScore.overallMatchScore}% match</Badge>}
+            isSaved={savedIds.has(jobPost.id)}
+            saveMutating={save.isPending || unsave.isPending}
+            onToggleSave={() =>
+              savedIds.has(jobPost.id)
+                ? unsave.mutate({ jobPostId: jobPost.id })
+                : save.mutate({ jobPostId: jobPost.id })
+            }
+            footer={
+              <Button
+                size="sm"
+                loading={apply.isPending}
+                loadingText="Applying…"
+                onClick={() => apply.mutate({ jobPostId: jobPost.id })}
+              >
+                Apply
+              </Button>
+            }
+          />
+        ))}
+      </div>
+      <ListPagination page={list.page} totalPages={list.totalPages} total={list.total} onPageChange={list.setPage} />
     </div>
   );
 }
@@ -215,32 +263,67 @@ function RecommendedJobs() {
     );
   }
 
+  return <RecommendedJobsList data={recommended.data} savedIds={savedIds} apply={apply} save={save} unsave={unsave} />;
+}
+
+function RecommendedJobsList({
+  data,
+  savedIds,
+  apply,
+  save,
+  unsave,
+}: {
+  data: { jobPost: JobPostSummary; similarity: number }[];
+  savedIds: Set<string>;
+  apply: ReturnType<typeof trpc.candidate.jobs.applyToJob.useMutation>;
+  save: ReturnType<typeof trpc.candidate.jobs.save.useMutation>;
+  unsave: ReturnType<typeof trpc.candidate.jobs.unsave.useMutation>;
+}) {
+  const { search, setSearch, filtered } = useTitleSearch(data, (r) => r.jobPost.title);
+  const list = useListControls(filtered, (a, b, dir) => {
+    const diff = a.similarity - b.similarity;
+    return dir === "desc" ? -diff : diff;
+  });
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {recommended.data.map(({ jobPost, similarity }) => (
-        <JobCard
-          key={jobPost.id}
-          jobPost={jobPost}
-          badge={<Badge variant="secondary">{Math.round(similarity * 100)}% fit</Badge>}
-          isSaved={savedIds.has(jobPost.id)}
-          saveMutating={save.isPending || unsave.isPending}
-          onToggleSave={() =>
-            savedIds.has(jobPost.id)
-              ? unsave.mutate({ jobPostId: jobPost.id })
-              : save.mutate({ jobPostId: jobPost.id })
-          }
-          footer={
-            <Button
-              size="sm"
-              loading={apply.isPending}
-              loadingText="Applying…"
-              onClick={() => apply.mutate({ jobPostId: jobPost.id })}
-            >
-              Apply
-            </Button>
-          }
-        />
-      ))}
+    <div className="space-y-4">
+      <ListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search recommended jobs..."
+        sortDir={list.sortDir}
+        onSortDirChange={list.setSortDir}
+        sortLabel="Fit"
+        descLabel="Highest"
+        ascLabel="Lowest"
+      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {list.pageItems.map(({ jobPost, similarity }) => (
+          <JobCard
+            key={jobPost.id}
+            jobPost={jobPost}
+            badge={<Badge variant="secondary">{Math.round(similarity * 100)}% fit</Badge>}
+            isSaved={savedIds.has(jobPost.id)}
+            saveMutating={save.isPending || unsave.isPending}
+            onToggleSave={() =>
+              savedIds.has(jobPost.id)
+                ? unsave.mutate({ jobPostId: jobPost.id })
+                : save.mutate({ jobPostId: jobPost.id })
+            }
+            footer={
+              <Button
+                size="sm"
+                loading={apply.isPending}
+                loadingText="Applying…"
+                onClick={() => apply.mutate({ jobPostId: jobPost.id })}
+              >
+                Apply
+              </Button>
+            }
+          />
+        ))}
+      </div>
+      <ListPagination page={list.page} totalPages={list.totalPages} total={list.total} onPageChange={list.setPage} />
     </div>
   );
 }
@@ -288,44 +371,75 @@ function MyApplications() {
     );
   }
 
+  return <MyApplicationsList data={applications.data} withdraw={withdraw} setWithdrawTarget={setWithdrawTarget} withdrawTarget={withdrawTarget} />;
+}
+
+function MyApplicationsList({
+  data,
+  withdraw,
+  setWithdrawTarget,
+  withdrawTarget,
+}: {
+  data: RouterOutputs["candidate"]["jobs"]["myApplications"];
+  withdraw: ReturnType<typeof trpc.candidate.jobs.withdraw.useMutation>;
+  setWithdrawTarget: (t: { id: string; title: string } | null) => void;
+  withdrawTarget: { id: string; title: string } | null;
+}) {
+  const { search, setSearch, filtered } = useTitleSearch(data, (a) => a.jobPost.title);
+  const list = useListControls(filtered, (a, b, dir) => {
+    const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    return dir === "desc" ? -diff : diff;
+  });
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {applications.data.map((app) => {
-        const canWithdraw = app.currentStage === "INBOX" && app.source === "CANDIDATE_APPLIED";
-        return (
-          <Card key={app.id}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between gap-2">
-                <Link href={`/applications/${app.id}`} className="line-clamp-1 hover:underline">
-                  {app.jobPost.title}
-                </Link>
-                <Badge variant="secondary">{app.currentStage}</Badge>
-              </CardTitle>
-              <p className="line-clamp-1 text-xs font-medium text-muted-foreground">{app.jobPost.workspace.name}</p>
-              <CardDescription className="line-clamp-2 min-h-10">{app.jobPost.description}</CardDescription>
-            </CardHeader>
-            <CardFooter className="justify-end">
-              {canWithdraw ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={withdraw.isPending}
-                  onClick={() => setWithdrawTarget({ id: app.id, title: app.jobPost.title })}
-                >
-                  Withdraw
-                </Button>
-              ) : (
-                <Link
-                  href={`/applications/${app.id}`}
-                  className="line-clamp-1 ml-auto text-xs text-muted-foreground underline-offset-4 hover:underline"
-                >
-                  Message the employer to withdraw
-                </Link>
-              )}
-            </CardFooter>
-          </Card>
-        );
-      })}
+    <div className="space-y-4">
+      <ListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search applications..."
+        sortDir={list.sortDir}
+        onSortDirChange={list.setSortDir}
+        sortLabel="Applied"
+      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {list.pageItems.map((app) => {
+          const canWithdraw = app.currentStage === "INBOX" && app.source === "CANDIDATE_APPLIED";
+          return (
+            <Card key={app.id}>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-2">
+                  <Link href={`/applications/${app.id}`} className="line-clamp-1 hover:underline">
+                    {app.jobPost.title}
+                  </Link>
+                  <Badge variant="secondary">{app.currentStage}</Badge>
+                </CardTitle>
+                <p className="line-clamp-1 text-xs font-medium text-muted-foreground">{app.jobPost.workspace.name}</p>
+                <CardDescription className="line-clamp-2 min-h-10">{app.jobPost.description}</CardDescription>
+              </CardHeader>
+              <CardFooter className="justify-end">
+                {canWithdraw ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={withdraw.isPending}
+                    onClick={() => setWithdrawTarget({ id: app.id, title: app.jobPost.title })}
+                  >
+                    Withdraw
+                  </Button>
+                ) : (
+                  <Link
+                    href={`/applications/${app.id}`}
+                    className="line-clamp-1 ml-auto text-xs text-muted-foreground underline-offset-4 hover:underline"
+                  >
+                    Message the employer to withdraw
+                  </Link>
+                )}
+              </CardFooter>
+            </Card>
+          );
+        })}
+      </div>
+      <ListPagination page={list.page} totalPages={list.totalPages} total={list.total} onPageChange={list.setPage} />
 
       <ConfirmDialog
         open={withdrawTarget !== null}
@@ -386,27 +500,58 @@ function SavedJobs() {
     );
   }
 
+  return <SavedJobsList data={saved.data} apply={apply} unsave={unsave} />;
+}
+
+function SavedJobsList({
+  data,
+  apply,
+  unsave,
+}: {
+  data: JobPostSummary[];
+  apply: ReturnType<typeof trpc.candidate.jobs.applyToJob.useMutation>;
+  unsave: ReturnType<typeof trpc.candidate.jobs.unsave.useMutation>;
+}) {
+  const { search, setSearch, filtered } = useTitleSearch(data, (j) => j.title);
+  const list = useListControls(filtered, (a, b, dir) => {
+    const diff = a.title.localeCompare(b.title);
+    return dir === "desc" ? -diff : diff;
+  });
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {saved.data.map((jobPost) => (
-        <JobCard
-          key={jobPost.id}
-          jobPost={jobPost}
-          isSaved
-          saveMutating={unsave.isPending}
-          onToggleSave={() => unsave.mutate({ jobPostId: jobPost.id })}
-          footer={
-            <Button
-              size="sm"
-              loading={apply.isPending}
-              loadingText="Applying…"
-              onClick={() => apply.mutate({ jobPostId: jobPost.id })}
-            >
-              Apply
-            </Button>
-          }
-        />
-      ))}
+    <div className="space-y-4">
+      <ListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search saved jobs..."
+        sortDir={list.sortDir}
+        onSortDirChange={list.setSortDir}
+        sortLabel="Title"
+        descLabel="Z-A"
+        ascLabel="A-Z"
+      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {list.pageItems.map((jobPost) => (
+          <JobCard
+            key={jobPost.id}
+            jobPost={jobPost}
+            isSaved
+            saveMutating={unsave.isPending}
+            onToggleSave={() => unsave.mutate({ jobPostId: jobPost.id })}
+            footer={
+              <Button
+                size="sm"
+                loading={apply.isPending}
+                loadingText="Applying…"
+                onClick={() => apply.mutate({ jobPostId: jobPost.id })}
+              >
+                Apply
+              </Button>
+            }
+          />
+        ))}
+      </div>
+      <ListPagination page={list.page} totalPages={list.totalPages} total={list.total} onPageChange={list.setPage} />
     </div>
   );
 }

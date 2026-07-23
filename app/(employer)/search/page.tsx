@@ -188,6 +188,17 @@ export default function SearchPage() {
   function recallSearch(filters: Record<string, unknown>) {
     if (typeof filters.industryId === "string") setIndustryId(filters.industryId);
     setJobPostId(typeof filters.jobPostId === "string" ? filters.jobPostId : "");
+    setSoftwareIds(
+      Array.isArray(filters.softwareIds)
+        ? (filters.softwareIds as { softwareId: string; minProficiency: Proficiency }[])
+        : [],
+    );
+    setSkillIds(Array.isArray(filters.skillIds) ? (filters.skillIds as string[]) : []);
+    setRateMin(typeof filters.rateMin === "number" ? String(filters.rateMin) : "");
+    setRateMax(typeof filters.rateMax === "number" ? String(filters.rateMax) : "");
+    setMinWeeklyAvailability(
+      typeof filters.minWeeklyAvailability === "number" ? String(filters.minWeeklyAvailability) : "",
+    );
     setPage(1);
   }
 
@@ -598,7 +609,15 @@ export default function SearchPage() {
               onClick={() => {
                 saveSearch.mutate({
                   name: saveSearchName.trim(),
-                  filters: { industryId, jobPostId: jobPostId || undefined },
+                  filters: {
+                    industryId,
+                    jobPostId: jobPostId || undefined,
+                    softwareIds: softwareIds.length ? softwareIds : undefined,
+                    skillIds: skillIds.length ? skillIds : undefined,
+                    rateMin: rateMin ? Number(rateMin) : undefined,
+                    rateMax: rateMax ? Number(rateMax) : undefined,
+                    minWeeklyAvailability: minWeeklyAvailability ? Number(minWeeklyAvailability) : undefined,
+                  },
                 });
                 setSaveSearchName("");
                 setSaveSearchOpen(false);

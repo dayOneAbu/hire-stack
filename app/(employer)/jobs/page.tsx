@@ -47,16 +47,20 @@ export default function JobsPage() {
   const [archiveTarget, setArchiveTarget] = useState<{ id: string; title: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(ALL_STATUSES);
   const [range, setRange] = useState<DateRangeKey>("all");
+  const [search, setSearch] = useState("");
   const jobs = trpc.employer.jobPost.list.useQuery();
   const utils = trpc.useUtils();
 
   const filtered = useMemo(() => {
     const { from } = rangeToDates(range);
+    const q = search.trim().toLowerCase();
     return (jobs.data ?? []).filter(
       (j) =>
-        (statusFilter === ALL_STATUSES || j.status === statusFilter) && (!from || new Date(j.createdAt) >= from),
+        (statusFilter === ALL_STATUSES || j.status === statusFilter) &&
+        (!from || new Date(j.createdAt) >= from) &&
+        (!q || j.title.toLowerCase().includes(q)),
     );
-  }, [jobs.data, statusFilter, range]);
+  }, [jobs.data, statusFilter, range, search]);
   const list = useListControls(filtered, (a, b, dir) => {
     const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     return dir === "desc" ? -diff : diff;
@@ -132,19 +136,34 @@ export default function JobsPage() {
 
       {!!jobs.data?.length && (
         <ListToolbar
+          search={search}
+          onSearchChange={(v) => {
+            setSearch(v);
+            list.setPage(1);
+          }}
+          searchPlaceholder="Search job posts..."
           sortDir={list.sortDir}
           onSortDirChange={list.setSortDir}
           sortLabel="Created"
           right={
             <>
-              <DateRangeFilter value={range} onChange={setRange} />
+              <DateRangeFilter
+                value={range}
+                onChange={(v) => {
+                  setRange(v);
+                  list.setPage(1);
+                }}
+              />
               <Select
                 items={[
                   { value: ALL_STATUSES, label: "All statuses" },
                   ...Object.keys(STATUS_TONE).map((s) => ({ value: s, label: s })),
                 ]}
                 value={statusFilter}
-                onValueChange={(v) => setStatusFilter(v ?? ALL_STATUSES)}
+                onValueChange={(v) => {
+                  setStatusFilter(v ?? ALL_STATUSES);
+                  list.setPage(1);
+                }}
               >
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="All statuses" />
@@ -184,7 +203,7 @@ export default function JobsPage() {
 
       {!!jobs.data?.length && filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
-          <p className="text-sm text-muted-foreground">No job posts match that status.</p>
+          <p className="text-sm text-muted-foreground">No job posts match your filters.</p>
         </div>
       )}
 
