@@ -108,3 +108,78 @@ export async function computeMatchScore(
     requiredHoursMin: jobPost.requiredHoursMin,
   });
 }
+
+// Same as computeMatchScore but fetches the candidate once and reuses it across every
+// jobPost, instead of one findUniqueOrThrow per job — avoids N+1 round-trips when scoring
+// a candidate against many active job posts at once (e.g. candidate.jobs.matched).
+export async function computeMatchScoresForCandidate(
+  candidateId: string,
+  jobPosts: Array<{ id: string; requiredSoftware: JobRequiredSoftware[]; targetRateMin: unknown; targetRateMax: unknown; requiredHoursMin: number }>,
+): Promise<Map<string, MatchScoreBreakdown>> {
+  const candidate = await prisma.candidate.findUniqueOrThrow({
+    where: { id: candidateId },
+    include: { softwareInventory: true, employmentHistory: true },
+  });
+
+  const base = {
+    candidateSoftware: candidate.softwareInventory,
+    employmentHistory: candidate.employmentHistory,
+    targetHourlyRateMin: candidate.targetHourlyRateMin ? Number(candidate.targetHourlyRateMin) : null,
+    targetHourlyRateMax: candidate.targetHourlyRateMax ? Number(candidate.targetHourlyRateMax) : null,
+    weeklyAvailability: candidate.weeklyAvailability,
+  };
+
+  return new Map(
+    jobPosts.map((jobPost) => [
+      jobPost.id,
+      scoreMatch({
+        ...base,
+        requiredSoftware: jobPost.requiredSoftware,
+        jobTargetRateMin: jobPost.targetRateMin != null ? Number(jobPost.targetRateMin) : null,
+        jobTargetRateMax: jobPost.targetRateMax != null ? Number(jobPost.targetRateMax) : null,
+        requiredHoursMin: jobPost.requiredHoursMin,
+      }),
+    ]),
+  );
+}
+
+// Mirror of computeMatchScoresForCandidate for the opposite shape: one job post scored
+// against many candidates (employer search results) — fetches the job post once instead
+// of once per candidate.
+export async function computeMatchScoresForJobPost(
+  jobPostId: string,
+  candidates: Array<{
+    id: string;
+    softwareInventory: CandidateSoftware[];
+    employmentHistory: EmploymentPeriod[];
+    targetHourlyRateMin: unknown;
+    targetHourlyRateMax: unknown;
+    weeklyAvailability: number;
+  }>,
+): Promise<Map<string, MatchScoreBreakdown>> {
+  const jobPost = await prisma.jobPost.findUniqueOrThrow({
+    where: { id: jobPostId },
+    include: { requiredSoftware: true },
+  });
+
+  const base = {
+    requiredSoftware: jobPost.requiredSoftware,
+    jobTargetRateMin: jobPost.targetRateMin != null ? Number(jobPost.targetRateMin) : null,
+    jobTargetRateMax: jobPost.targetRateMax != null ? Number(jobPost.targetRateMax) : null,
+    requiredHoursMin: jobPost.requiredHoursMin,
+  };
+
+  return new Map(
+    candidates.map((c) => [
+      c.id,
+      scoreMatch({
+        ...base,
+        candidateSoftware: c.softwareInventory,
+        employmentHistory: c.employmentHistory,
+        targetHourlyRateMin: c.targetHourlyRateMin != null ? Number(c.targetHourlyRateMin) : null,
+        targetHourlyRateMax: c.targetHourlyRateMax != null ? Number(c.targetHourlyRateMax) : null,
+        weeklyAvailability: c.weeklyAvailability,
+      }),
+    ]),
+  );
+}

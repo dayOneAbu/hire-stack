@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { router, employerProcedure } from "@/server/trpc/trpc";
 import { canViewFullProfile } from "@/server/services/employerAccess";
-import { computeMatchScore } from "@/server/services/matchScore";
+import { computeMatchScoresForJobPost } from "@/server/services/matchScore";
 import { TRPCError } from "@trpc/server";
 import { embedTexts, answerAboutCandidate } from "@/lib/ai";
 import { searchCandidateChunks, blendScore, topChunksForCandidate } from "@/server/services/embeddings";
@@ -121,21 +121,22 @@ export const searchRouter = router({
       };
     }
 
-    const results = await Promise.all(
-      candidates.map(async (c) => ({
-        id: c.id,
-        firstName: c.firstName,
-        lastName: c.lastName,
-        avatarUrl: c.avatarUrl,
-        employmentHistory: c.employmentHistory,
-        software: c.softwareInventory.map((s) => ({
-          name: s.software.name,
-          proficiency: s.proficiency,
-          yearsOfUsage: s.yearsOfUsage,
-        })),
-        matchScore: input.jobPostId ? await computeMatchScore(c.id, input.jobPostId) : null,
+    const scores = input.jobPostId
+      ? await computeMatchScoresForJobPost(input.jobPostId, candidates)
+      : null;
+    const results = candidates.map((c) => ({
+      id: c.id,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      avatarUrl: c.avatarUrl,
+      employmentHistory: c.employmentHistory,
+      software: c.softwareInventory.map((s) => ({
+        name: s.software.name,
+        proficiency: s.proficiency,
+        yearsOfUsage: s.yearsOfUsage,
       })),
-    );
+      matchScore: scores?.get(c.id) ?? null,
+    }));
 
     const ranked = input.jobPostId
       ? rankByRelevance(results.map((r) => ({ ...r, overallScore: r.matchScore! })))
@@ -167,29 +168,31 @@ export const searchRouter = router({
       });
       const byId = new Map(candidates.map((c) => [c.id, c]));
 
-      const results = await Promise.all(
-        matches.map(async (m) => {
-          const candidate = byId.get(m.candidateId);
-          if (!candidate) return null;
+      const scores = input.jobPostId
+        ? await computeMatchScoresForJobPost(input.jobPostId, candidates)
+        : null;
 
-          const matchScore = input.jobPostId ? await computeMatchScore(m.candidateId, input.jobPostId) : null;
-          const blended = matchScore
-            ? blendScore(m.similarity, matchScore.overallMatchScore / 100)
-            : m.similarity;
+      const results = matches.map((m) => {
+        const candidate = byId.get(m.candidateId);
+        if (!candidate) return null;
 
-          return {
-            id: candidate.id,
-            firstName: candidate.firstName,
-            lastName: candidate.lastName,
-            avatarUrl: candidate.avatarUrl,
-            software: candidate.softwareInventory.map((s) => s.software.name),
-            matchScore,
-            similarity: m.similarity,
-            blendedScore: blended,
-            matchedChunk: { source: m.source, content: m.content },
-          };
-        }),
-      );
+        const matchScore = scores?.get(m.candidateId) ?? null;
+        const blended = matchScore
+          ? blendScore(m.similarity, matchScore.overallMatchScore / 100)
+          : m.similarity;
+
+        return {
+          id: candidate.id,
+          firstName: candidate.firstName,
+          lastName: candidate.lastName,
+          avatarUrl: candidate.avatarUrl,
+          software: candidate.softwareInventory.map((s) => s.software.name),
+          matchScore,
+          similarity: m.similarity,
+          blendedScore: blended,
+          matchedChunk: { source: m.source, content: m.content },
+        };
+      });
 
       const ranked = results
         .filter((r): r is NonNullable<typeof r> => r !== null)

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, candidateProcedure } from "@/server/trpc/trpc";
-import { computeMatchScore } from "@/server/services/matchScore";
+import { computeMatchScore, computeMatchScoresForCandidate } from "@/server/services/matchScore";
 import { canWithdraw } from "@/server/services/applicationWithdraw";
 import { meanCandidateEmbedding, searchJobPosts } from "@/server/services/embeddings";
 import { rankByRelevance } from "@/server/services/aiRanking";
@@ -19,13 +19,13 @@ export const jobsRouter = router({
     const candidateId = await getCandidateId(ctx.prisma, ctx.session.user.id);
     const jobPosts = await ctx.prisma.jobPost.findMany({
       where: { status: "ACTIVE", ...notCanceledWorkspace },
+      include: { requiredSoftware: true },
     });
-    const scored = await Promise.all(
-      jobPosts.map(async (jobPost) => ({
-        jobPost,
-        overallScore: await computeMatchScore(candidateId, jobPost.id),
-      })),
-    );
+    const scores = await computeMatchScoresForCandidate(candidateId, jobPosts);
+    const scored = jobPosts.map((jobPost) => ({
+      jobPost,
+      overallScore: scores.get(jobPost.id)!,
+    }));
     return rankByRelevance(scored);
   }),
 
