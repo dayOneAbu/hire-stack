@@ -18,11 +18,15 @@ async function getOrCreateCustomerId(prisma: typeof import("@/lib/prisma").prism
 export const billingRouter = router({
   status: employerProcedure.query(async ({ ctx }) => {
     const workspaceId = await getWorkspaceId(ctx.prisma, ctx.session.user.id);
-    const workspace = await ctx.prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId } });
+    const [workspace, activeJobCount] = await Promise.all([
+      ctx.prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId } }),
+      ctx.prisma.jobPost.count({ where: { workspaceId, status: "ACTIVE" } }),
+    ]);
     return {
       subscriptionTier: workspace.subscriptionTier,
       subscriptionStatus: workspace.subscriptionStatus,
       jobSlotLimit: workspace.jobSlotLimit,
+      activeJobCount,
       hasConsultation: workspace.hasConsultation,
       hasHireAssist: workspace.hasHireAssist,
       hasCustomer: !!workspace.stripeCustomerId,

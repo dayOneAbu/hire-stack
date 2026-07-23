@@ -63,9 +63,17 @@ export default function BillingPage() {
             {status.data && <Badge variant="outline">{status.data.subscriptionTier}</Badge>}
           </CardTitle>
           <CardDescription>
-            {status.data && `${status.data.subscriptionStatus} · ${status.data.jobSlotLimit} active job slot(s)`}
+            {status.data &&
+              `${status.data.subscriptionStatus} · ${status.data.activeJobCount}/${status.data.jobSlotLimit} job slots used`}
           </CardDescription>
         </CardHeader>
+        {status.data && status.data.activeJobCount >= status.data.jobSlotLimit && (
+          <CardContent>
+            <p className="text-sm text-amber-600 dark:text-amber-500">
+              You&apos;ve reached your plan&apos;s job slot limit. Upgrade to activate more jobs.
+            </p>
+          </CardContent>
+        )}
         {status.data?.hasCustomer && (
           <CardFooter>
             <Button variant="outline" onClick={() => portal.mutate()} disabled={portal.isPending}>
