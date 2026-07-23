@@ -41,4 +41,5 @@ yarn-error.log*
 next-env.d.ts
 
 # product spec — kept local, not tracked
-/docs/
+/docs/*
+!/docs/screenshots/

@@ -1,9 +1,13 @@
 # HireStack
 
 A hiring marketplace that connects overseas virtual assistants with real estate teams —
-built as a real product, not a portfolio toy.
+built end-to-end as a real product, not a portfolio toy.
 
-**Status: under active development, not deployed yet.**
+**[Live demo →](https://hire-stack-tan.vercel.app/)** — demo login buttons for
+candidate / employer / admin are right on the sign-in page, pre-loaded with a real
+profile, real jobs, applications at every pipeline stage, and a payment sitting in escrow.
+
+**Status: under active development.**
 
 ## What it actually does
 
@@ -24,16 +28,36 @@ built as a real product, not a portfolio toy.
 - **Live updates, not refresh-and-pray.** Messages and pipeline changes show up
   instantly.
 
-## Try it
+## Screenshots
 
-Demo login buttons (candidate / employer / admin) are right on the sign-in page —
-pre-loaded with a real profile, real jobs, applications at every pipeline stage, and a
-payment sitting in escrow, so there's something to click on immediately.
+| | |
+|---|---|
+| ![Employer dashboard](docs/screenshots/03-employer-overview.png) Employer dashboard | ![Kanban board](docs/screenshots/04-employer-kanban-board.png) Candidate pipeline board |
+| ![Candidate matches](docs/screenshots/06-candidate-dashboard.png) Candidate matched jobs | ![Candidate profile](docs/screenshots/07-candidate-profile.png) Candidate profile |
+
+## Why these decisions
+
+A few product/architecture calls worth calling out, since they're the interesting part:
+
+- **The publish gate is derived, not a button.** A candidate profile becomes searchable
+  automatically the moment it has zero unresolved employment anomalies — there's no
+  separate "admin approves candidate" step. Verification is a state, not an action.
+- **Ambiguity detection is a deterministic rule pass, not an LLM judgment call.** The AI's
+  only job is structured extraction from the résumé; a rules engine decides what counts
+  as suspicious (gaps, wage mismatches, unverifiable software claims), so the same input
+  always produces the same flag.
+- **Match score is per job post, not per profile.** A candidate doesn't have one global
+  score — they have a different score against every job they could apply to, computed
+  from a weighted formula (skills, software, industry, availability).
+- **Kanban stages are fully free-form.** No workflow enforcement, no illegal transitions.
+  Recruiters move candidates back out of "Rejected" all the time in real life — the tool
+  shouldn't fight that.
 
 ## Stack
 
-Next.js · tRPC · PostgreSQL (Neon) + pgvector + Prisma · BetterAuth · NVIDIA NIM (AI) ·
-Stripe + Stripe Connect · Cloudflare R2 · shadcn/ui.
+Next.js (App Router) · tRPC · PostgreSQL (Neon) + pgvector + Prisma · BetterAuth ·
+NVIDIA NIM (AI extraction + embeddings, provider-agnostic via env vars) · Stripe +
+Stripe Connect · Cloudflare R2 · shadcn/ui.
 
 ## Local setup
 
