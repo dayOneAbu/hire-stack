@@ -1,4 +1,5 @@
 import { initTRPC, TRPCError } from "@trpc/server";
+import { Prisma } from "@prisma/client";
 import superjson from "superjson";
 import type { TRPCContext } from "@/server/trpc/context";
 
@@ -7,6 +8,15 @@ const t = initTRPC.context<TRPCContext>().create({
   sse: {
     ping: { enabled: true, intervalMs: 3000 },
     client: { reconnectAfterInactivityMs: 5000 },
+  },
+  errorFormatter({ shape, error }) {
+    // findUniqueOrThrow/findFirstOrThrow raise Prisma's own NotFoundError (P2025), which
+    // isn't a TRPCError — unmapped it crashes the function as an unhandled 500 instead of
+    // surfacing as a normal 404 the client can handle.
+    if (error.cause instanceof Prisma.PrismaClientKnownRequestError && error.cause.code === "P2025") {
+      return { ...shape, data: { ...shape.data, code: "NOT_FOUND" as const, httpStatus: 404 } };
+    }
+    return shape;
   },
 });
 
