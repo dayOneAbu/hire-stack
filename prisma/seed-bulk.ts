@@ -125,7 +125,7 @@ async function main() {
         },
       });
       // Most jobs ACTIVE (so they show up on boards/search); a few stay DRAFT/PAUSED/CLOSED for status variety.
-      const finalStatus = pick(["ACTIVE", "ACTIVE", "ACTIVE", "ACTIVE", "DRAFT", "PAUSED", "CLOSED"]);
+      const finalStatus = pick(["ACTIVE", "ACTIVE", "ACTIVE", "ACTIVE", "DRAFT", "PAUSED", "CLOSED"] as const);
       if (finalStatus !== "DRAFT") {
         const now = new Date();
         await prisma.jobPost.update({
